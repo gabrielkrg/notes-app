@@ -5,7 +5,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { firstPageRoute, type NavDirNode, type NavNode } from '@/content.ts'
+import { hrefForNode, type NavDirNode, type NavNode } from '@/content.ts'
 
 export function FolderFileAccordion({
   folder,
@@ -29,7 +29,7 @@ export function FolderFileAccordion({
       <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
         <ul className="grid gap-0.5 border-t px-2 py-2">
           {children.map((node) => {
-            const href = firstPageRoute(node)
+            const href = hrefForNode(node)
             return (
               <li key={node.id}>
                 <button

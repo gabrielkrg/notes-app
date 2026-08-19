@@ -5,8 +5,11 @@ import {
   buildContent,
   buildNoteGraph,
   dirForIndex,
+  dirForRoute,
   groupLinkCounts,
+  hrefForNode,
   isGraphRoute,
+  overviewNodes,
   pageByRoute,
   resolveMdHref,
   routeFor,
@@ -167,5 +170,81 @@ describe('groupLinkCounts', () => {
     const counts = groupLinkCounts(buildNoteGraph(pages))
     assert.equal(counts.get('php'), 2)
     assert.equal(counts.get('laravel'), 1)
+  })
+})
+
+describe('dirForRoute', () => {
+  const raw = {
+    'notes/php/arrays.md': '# Arrays\n',
+    'notes/laravel/queues.md': '# Queues\n',
+    'skills/git.md': '# Git\n',
+  }
+
+  it('finds a folder even when it has no index.md', () => {
+    const { navTree } = buildContent(raw)
+    const folder = dirForRoute(navTree, 'notes')
+    assert.ok(folder)
+    assert.equal(folder.path, 'notes')
+    assert.deepEqual(
+      folder.children.filter((node) => node.type === 'dir').map((node) => node.path).sort(),
+      ['notes/laravel', 'notes/php'],
+    )
+  })
+
+  it('returns null for the dashboard and missing folders', () => {
+    const { navTree } = buildContent(raw)
+    assert.equal(dirForRoute(navTree, ''), null)
+    assert.equal(dirForRoute(navTree, 'missing'), null)
+  })
+})
+
+describe('hrefForNode', () => {
+  it('opens a folder at its own path when it has no index', () => {
+    const { navTree } = buildContent({
+      'notes/php/arrays.md': '# Arrays\n',
+    })
+    assert.equal(hrefForNode(navTree[0]), 'notes')
+  })
+
+  it('opens a folder with index.md at the folder path', () => {
+    const { navTree } = buildContent({
+      'php/index.md': '# PHP\n',
+      'php/arrays.md': '# Arrays\n',
+    })
+    assert.equal(hrefForNode(navTree[0]), 'php')
+  })
+
+  it('opens a page at its note route', () => {
+    const { navTree } = buildContent({
+      'readme.md': '# Readme\n',
+    })
+    assert.equal(hrefForNode(navTree[0]), 'readme')
+  })
+})
+
+describe('overviewNodes', () => {
+  const raw = {
+    'notes/php/arrays.md': '# Arrays\n',
+    'notes/laravel/queues.md': '# Queues\n',
+    'skills/git.md': '# Git\n',
+  }
+
+  it('shows included root folders on the dashboard', () => {
+    const { navTree } = buildContent(raw)
+    assert.deepEqual(
+      overviewNodes(navTree, '').map((node) => node.path).sort(),
+      ['notes', 'skills'],
+    )
+  })
+
+  it('shows the folders inside a directory that has no index.md', () => {
+    const { navTree } = buildContent(raw)
+    assert.deepEqual(
+      overviewNodes(navTree, 'notes')
+        .filter((node) => node.type === 'dir')
+        .map((node) => node.path)
+        .sort(),
+      ['notes/laravel', 'notes/php'],
+    )
   })
 })

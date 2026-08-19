@@ -8,6 +8,7 @@ import {
   FolderMinus,
   FolderOpen,
   FolderPlus,
+  LayoutDashboard,
   Network,
   Paperclip,
   Trash2,
@@ -40,7 +41,7 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar'
 import { ShortcutHint } from '@/components/search-command'
-import { firstPageRoute, GRAPH_ROUTE, isGraphRoute, type NavDirNode, type NavNode, type NavPageNode } from '@/content.ts'
+import { GRAPH_ROUTE, hrefForNode, isGraphRoute, type NavDirNode, type NavNode, type NavPageNode } from '@/content.ts'
 import { attachedRootForDir } from '@/lib/notes-roots.ts'
 import type { DeleteTarget } from '@/lib/note-delete.ts'
 import type { NoteKind } from '@/lib/note-name.ts'
@@ -206,7 +207,7 @@ export function AppSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              tooltip="Home"
+              tooltip="Dashboard"
               className="hover:bg-transparent hover:text-sidebar-foreground active:bg-transparent active:text-sidebar-foreground data-[active=true]:bg-transparent"
               onClick={() => onGo('')}
             >
@@ -225,7 +226,17 @@ export function AppSidebar({
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0.5">
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Dashboard"
+                  isActive={!route}
+                  onClick={() => onGo('')}
+                >
+                  <LayoutDashboard />
+                  <span>Dashboard</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Graph"
@@ -357,7 +368,7 @@ function FolderNode({
   roots?: string[]
   protectRootFolders?: boolean
 }) {
-  const active = route === node.page?.route
+  const active = route === node.path
   const Icon = open ? FolderOpen : Folder
   const children = node.children || []
   const [childOpenId, setChildOpenId] = useAccordion(children, route)
@@ -366,10 +377,13 @@ function FolderNode({
   const canRemoveRoot = Boolean(onRemoveRoot && attachedRoot)
 
   function handleOpenChange(next: boolean) {
+    const href = hrefForNode(node)
+    if (href && href !== route) {
+      onOpenChange(true)
+      onGo(href)
+      return
+    }
     onOpenChange(next)
-    if (!next) return
-    const href = firstPageRoute(node)
-    if (href) onGo(href)
   }
 
   const label = (

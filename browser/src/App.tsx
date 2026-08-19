@@ -59,9 +59,11 @@ import {
   countTopicPages,
   crumbsForRoute,
   dirForIndex,
-  firstPageRoute,
+  dirForRoute,
+  hrefForNode,
   isGraphRoute,
   neighbors,
+  overviewNodes,
   pageByRoute,
   parseHash,
   routeFor,
@@ -131,6 +133,8 @@ export default function App() {
   const tree = content.navTree
   const showingGraph = isGraphRoute(route)
   const page = showingGraph ? null : pageByRoute(content.pages, route)
+  const folderOverview = !page && !showingGraph ? dirForRoute(tree, route) : null
+  const showingDashboard = !page && !showingGraph && !folderOverview
   const section = sectionForRoute(tree, route)
   const crumbs = crumbsForRoute(tree, route)
   const { prev, next } = neighbors(tree, route)
@@ -363,15 +367,19 @@ export default function App() {
               <Breadcrumb className="min-w-0 flex-1">
                 <BreadcrumbList>
                   <BreadcrumbItem className="hidden sm:block">
-                    <BreadcrumbLink
-                      href="#/"
-                      onClick={(event) => {
-                        event.preventDefault()
-                        go('')
-                      }}
-                    >
-                      Home
-                    </BreadcrumbLink>
+                    {showingDashboard ? (
+                      <BreadcrumbPage>Dashboard</BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink
+                        href="#/"
+                        onClick={(event) => {
+                          event.preventDefault()
+                          go('')
+                        }}
+                      >
+                        Dashboard
+                      </BreadcrumbLink>
+                    )}
                   </BreadcrumbItem>
                   {showingGraph && (
                     <>
@@ -456,13 +464,15 @@ export default function App() {
                     </p>
                   </div>
                 ) : !page ? (
-                  <Home
+                  <Dashboard
                     last={last}
                     onOpen={go}
                     done={done}
                     tree={tree}
+                    nodes={overviewNodes(tree, route)}
                     pages={content.pages}
-                    topicCount={content.topicCount}
+                    topicCount={folderOverview ? countTopicPages(folderOverview) : content.topicCount}
+                    folder={folderOverview}
                   />
                 ) : (
                   <Article
@@ -563,35 +573,41 @@ export default function App() {
   )
 }
 
-function Home({
+function Dashboard({
   last,
   onOpen,
   done,
   tree,
+  nodes,
   pages,
   topicCount,
+  folder,
 }: {
   last: string | null
   onOpen: (route: string) => void
   done: Set<string>
   tree: NavNode[]
+  nodes: NavNode[]
   pages: Pages
   topicCount: number
+  folder: NavDirNode | null
 }) {
-  const lastPage = last ? pageByRoute(pages, last) : null
-  const lastSection = last ? sectionForRoute(tree, last) : null
+  const lastPage = !folder && last ? pageByRoute(pages, last) : null
+  const lastSection = !folder && last ? sectionForRoute(tree, last) : null
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-10">
       <header className="grid gap-3">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Keep the markdown. Read and write it here.
+          {folder ? 'Folder' : 'Keep the markdown. Read and write it here.'}
         </p>
         <h1 className="font-heading text-3xl font-medium tracking-tight sm:text-4xl">
-          Notes stay files. This is the desk.
+          {folder ? folder.label : 'Notes stay files. This is the desk.'}
         </h1>
         <p className="max-w-xl text-muted-foreground">
-          Notes stay on disk. Folders are menu groups. Use the sidebar or Settings to add files and point at a folder.
+          {folder
+            ? folder.focus || 'Folders and files in this directory.'
+            : 'Notes stay on disk. Folders are menu groups. Use the sidebar or Settings to add files and point at a folder.'}
         </p>
         {last && lastPage && (
           <div>
@@ -604,7 +620,7 @@ function Home({
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {tree.map((node) => {
+        {nodes.map((node) => {
           if (node.type === 'page') {
             return (
               <Card key={node.id} className="h-full p-0">
@@ -624,7 +640,7 @@ function Home({
 
           const count = countTopicPages(node)
           const marked = countMarked(node, done)
-          const href = firstPageRoute(node)
+          const href = hrefForNode(node)
           return (
             <Card key={node.id} className="h-full p-0">
               <button
@@ -647,7 +663,8 @@ function Home({
       </div>
 
       <p className="text-sm text-muted-foreground">
-        {topicCount} topic files on disk.
+        {topicCount} topic {topicCount === 1 ? 'file' : 'files'}
+        {folder ? ' in this folder.' : ' on disk.'}
       </p>
     </div>
   )

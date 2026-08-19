@@ -343,6 +343,33 @@ export function dirForIndex(navTree: NavNode[], page: NotePage | null | undefine
   return walk(navTree)
 }
 
+export function dirForRoute(navTree: NavNode[], route: string): NavDirNode | null {
+  if (!route) return null
+
+  function walk(nodes: NavNode[]): NavDirNode | null {
+    for (const node of nodes) {
+      if (node.type !== 'dir') continue
+      if (node.path === route) return node
+      const found = walk(node.children)
+      if (found) return found
+    }
+    return null
+  }
+
+  return walk(navTree)
+}
+
+export function overviewNodes(navTree: NavNode[], route: string): NavNode[] {
+  if (!route) return navTree
+  const folder = dirForRoute(navTree, route)
+  return folder ? folder.children : navTree
+}
+
+export function hrefForNode(node: NavNode): string {
+  if (node.type === 'page') return node.page?.route || node.path
+  return node.path
+}
+
 export function firstPageRoute(node: NavNode): string {
   if (node.type === 'page') return node.page?.route || node.path
   if (node.page) return node.page.route

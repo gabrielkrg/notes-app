@@ -96,9 +96,9 @@ export function SearchCommand({
         <CommandList>
           <CommandEmpty>No files found.</CommandEmpty>
           <CommandGroup heading="Files">
-            <CommandItem value="home" onSelect={() => go('')}>
+            <CommandItem value="dashboard" onSelect={() => go('')}>
               <ChevronRight />
-              Home
+              Dashboard
             </CommandItem>
             {pages.map((page) => {
               const section = sectionForRoute(tree, page.route)
