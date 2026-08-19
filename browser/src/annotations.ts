@@ -100,7 +100,7 @@ function compact(value: string): string {
 function flexibleExact(exact: string): RegExp | null {
   const trimmed = compact(exact).trim()
   if (!trimmed) return null
-  return new RegExp(escapeRegExp(trimmed).replace(/\s+/g, '\\s+'))
+  return new RegExp(escapeRegExp(trimmed).replace(/\s+/g, '\\s*'))
 }
 
 function locateQuote(haystack: string, annotation: Annotation): { start: number; end: number } | null {
@@ -136,71 +136,155 @@ function flattenText(node: HastNode | null | undefined, parent: HastParent | nul
   for (const child of 'children' in node && node.children ? node.children : []) flattenText(child, node, acc)
 }
 
+const BLOCK_TAGS = new Set([
+  'p',
+  'li',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'td',
+  'th',
+  'blockquote',
+  'pre',
+  'div',
+  'dd',
+  'dt',
+])
+
+function isElement(node: HastNode | undefined): node is HastElement {
+  return Boolean(node && node.type === 'element')
+}
+
+function isText(node: HastNode | undefined): node is HastText {
+  return Boolean(node && node.type === 'text')
+}
+
+function descendantTexts(node: HastNode, acc: HastText[] = []): HastText[] {
+  if (isText(node)) {
+    acc.push(node)
+    return acc
+  }
+  for (const child of 'children' in node && node.children ? node.children : []) {
+    descendantTexts(child, acc)
+  }
+  return acc
+}
+
+function fullyCovered(node: HastNode, inRange: Set<HastText>): boolean {
+  const texts = descendantTexts(node)
+  return texts.length > 0 && texts.every((item) => inRange.has(item))
+}
+
+function partiallyCovered(node: HastNode, inRange: Set<HastText>): boolean {
+  const texts = descendantTexts(node)
+  const hit = texts.filter((item) => inRange.has(item)).length
+  return hit > 0 && hit < texts.length
+}
+
+function markElement(annotation: Annotation, children: HastNode[], isTip: boolean): HastElement {
+  return {
+    type: 'element',
+    tagName: 'span',
+    properties: {
+      className: ['ann', annotation.type === 'note' ? 'ann-note' : 'ann-mark'],
+      dataAnnId: annotation.id,
+      dataAnnKind: annotation.type,
+      ...(isTip ? { dataAnnTip: '1' } : {}),
+    },
+    children,
+  }
+}
+
+function wrapPhrasing(
+  parent: HastParent,
+  inRange: Set<HastText>,
+  annotation: Annotation,
+  tipNode: HastText | null,
+): void {
+  const children = parent.children
+  if (!children) return
+
+  let i = 0
+  while (i < children.length) {
+    const child = children[i]
+    if (isElement(child) && BLOCK_TAGS.has(child.tagName)) {
+      wrapPhrasing(child, inRange, annotation, tipNode)
+      i += 1
+      continue
+    }
+    if (fullyCovered(child, inRange)) {
+      let end = i + 1
+      while (end < children.length) {
+        const next = children[end]
+        if (isElement(next) && BLOCK_TAGS.has(next.tagName)) break
+        if (!fullyCovered(next, inRange)) break
+        end += 1
+      }
+      const run = children.slice(i, end)
+      const isTip = Boolean(tipNode && run.some((node) => descendantTexts(node).includes(tipNode)))
+      children.splice(i, end - i, markElement(annotation, run, isTip))
+      i += 1
+      continue
+    }
+    if (isElement(child) && partiallyCovered(child, inRange)) {
+      wrapPhrasing(child, inRange, annotation, tipNode)
+    }
+    i += 1
+  }
+}
+
 function wrapRange(
+  tree: HastParent,
   flat: { node: HastText; parent: HastParent | null }[],
   range: { start: number; end: number },
   annotation: Annotation,
 ): void {
-  const ops: {
-    parent: HastParent
-    node: HastText
-    localStart: number
-    localEnd: number
-    isFirst: boolean
-    isLast: boolean
-  }[] = []
+  const splits: { parent: HastParent; node: HastText; localStart: number; localEnd: number }[] = []
   let offset = 0
 
   for (const item of flat) {
     const len = item.node.value.length
-    const nodeStart = offset
-    const nodeEnd = offset + len
-    offset = nodeEnd
-
-    const from = Math.max(nodeStart, range.start)
-    const to = Math.min(nodeEnd, range.end)
-    if (from >= to || !item.parent?.children) continue
-    if (item.parent.properties?.dataAnnId) continue
-
-    ops.push({
-      parent: item.parent,
-      node: item.node,
-      localStart: from - nodeStart,
-      localEnd: to - nodeStart,
-      isFirst: from === range.start,
-      isLast: to === range.end,
-    })
+    const from = Math.max(offset, range.start)
+    const to = Math.min(offset + len, range.end)
+    if (from < to && item.parent?.children && !item.parent.properties?.dataAnnId) {
+      splits.push({
+        parent: item.parent,
+        node: item.node,
+        localStart: from - offset,
+        localEnd: to - offset,
+      })
+    }
+    offset += len
   }
 
-  for (let i = ops.length - 1; i >= 0; i -= 1) {
-    const op = ops[i]
+  const inRange = new Set<HastText>()
+  let tipNode: HastText | null = null
+
+  for (let i = splits.length - 1; i >= 0; i -= 1) {
+    const op = splits[i]
     const value = op.node.value
     const before = value.slice(0, op.localStart)
     const mid = value.slice(op.localStart, op.localEnd)
     const after = value.slice(op.localEnd)
     if (!mid) continue
 
-    const wrapped: HastElement = {
-      type: 'element',
-      tagName: 'span',
-      properties: {
-        className: ['ann', annotation.type === 'note' ? 'ann-note' : 'ann-mark'],
-        dataAnnId: annotation.id,
-        dataAnnKind: annotation.type,
-        ...(op.isLast ? { dataAnnTip: '1' } : {}),
-      },
-      children: [{ type: 'text', value: mid }],
-    }
-
+    const midNode: HastText = { type: 'text', value: mid }
     const parts: HastNode[] = []
     if (before) parts.push({ type: 'text', value: before })
-    parts.push(wrapped)
+    parts.push(midNode)
     if (after) parts.push({ type: 'text', value: after })
 
     const index = op.parent.children!.indexOf(op.node)
     if (index === -1) continue
     op.parent.children!.splice(index, 1, ...parts)
+    inRange.add(midNode)
+    if (i === splits.length - 1) tipNode = midNode
   }
+
+  wrapPhrasing(tree, inRange, annotation, tipNode)
 }
 
 export function rehypeAnnotate(annotations: Annotation[] | null | undefined) {
@@ -212,7 +296,7 @@ export function rehypeAnnotate(annotations: Annotation[] | null | undefined) {
       const haystack = flat.map((item) => item.node.value).join('')
       const range = locateQuote(haystack, annotation)
       if (!range) continue
-      wrapRange(flat, range, annotation)
+      wrapRange(tree, flat, range, annotation)
     }
   }
 }

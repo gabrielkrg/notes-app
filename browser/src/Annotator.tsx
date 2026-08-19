@@ -295,10 +295,10 @@ export function Annotated({
     <span
       ref={ref}
       className={cn(
-        'ann rounded-sm box-decoration-clone',
+        'ann',
         annotation.type === 'note'
-          ? 'ann-note cursor-help bg-amber-500/15 underline decoration-dotted decoration-amber-700 underline-offset-2 dark:decoration-amber-400'
-          : 'ann-mark bg-yellow-300/55 dark:bg-yellow-400/25',
+          ? 'ann-note cursor-help rounded-sm bg-amber-500/15 underline decoration-dotted decoration-amber-700 underline-offset-2 dark:decoration-amber-400'
+          : 'ann-mark',
       )}
       data-ann-id={annotation.id}
       onClick={(event) => {

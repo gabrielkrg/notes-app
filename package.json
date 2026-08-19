@@ -12,7 +12,7 @@
     "build": "tsc --noEmit && vite build --config browser/vite.config.ts",
     "preview": "vite preview --config browser/vite.config.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test browser/src/lib/*.test.ts browser/src/content-core.test.ts",
+    "test": "node --test browser/src/lib/*.test.ts browser/src/content-core.test.ts browser/src/annotations.test.ts",
     "desktop": "env -u ELECTRON_RUN_AS_NODE ELECTRON=1 vite --config desktop/vite.config.ts",
     "desktop:pack": "tsc --noEmit && ELECTRON=1 vite build --config desktop/vite.config.ts",
     "desktop:build": "npm run desktop:pack && env -u ELECTRON_RUN_AS_NODE electron-builder --linux AppImage",

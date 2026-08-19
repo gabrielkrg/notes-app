@@ -4,6 +4,8 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleDashed,
+  FileText,
+  Folder,
   Pencil,
   Save,
   Settings,
@@ -44,6 +46,7 @@ import { NoteEditor, type NoteEditorHandle } from '@/components/note-editor'
 import { SearchCommand, SearchTrigger } from '@/components/search-command'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { HighlightProvider } from '@/lib/highlight-provider.tsx'
 import { ThemeProvider } from '@/lib/theme'
 import { noteEditorHref, storageKey } from '@/lib/config.ts'
 import { isDesktop } from '@/lib/desktop'
@@ -341,7 +344,8 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <TooltipProvider>
+      <HighlightProvider>
+        <TooltipProvider>
         <SidebarProvider className="h-svh overflow-hidden">
           <AppSidebar
             tree={tree}
@@ -429,19 +433,17 @@ export default function App() {
                   {done.has(page.file) ? 'Read' : 'Mark as read'}
                 </Button>
               )}
-              {desktop && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label="Settings"
-                  onClick={() => {
-                    if (!confirmLeave()) return
-                    setSettingsOpen(true)
-                  }}
-                >
-                  <Settings />
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Settings"
+                onClick={() => {
+                  if (!confirmLeave()) return
+                  setSettingsOpen(true)
+                }}
+              >
+                <Settings />
+              </Button>
               <ThemeToggle />
             </header>
 
@@ -568,7 +570,8 @@ export default function App() {
             onDeleted={handleDeleted}
           />
         </SidebarProvider>
-      </TooltipProvider>
+        </TooltipProvider>
+      </HighlightProvider>
     </ThemeProvider>
   )
 }
@@ -630,8 +633,13 @@ function Dashboard({
                   onClick={() => onOpen(node.page.route)}
                 >
                   <CardHeader className="flex-1 p-5">
-                    <CardTitle>{node.label}</CardTitle>
-                    <CardDescription>{node.page.blurb}</CardDescription>
+                    <div className="flex items-start gap-2.5">
+                      <FileText aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                      <div className="grid min-w-0 gap-1">
+                        <CardTitle>{node.label}</CardTitle>
+                        <CardDescription>{node.page.blurb}</CardDescription>
+                      </div>
+                    </div>
                   </CardHeader>
                 </button>
               </Card>
@@ -649,8 +657,13 @@ function Dashboard({
                 onClick={() => href && onOpen(href)}
               >
                 <CardHeader className="flex-1 p-5">
-                  <CardTitle>{node.label}</CardTitle>
-                  <CardDescription>{node.focus}</CardDescription>
+                  <div className="flex items-start gap-2.5">
+                    <Folder aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <div className="grid min-w-0 gap-1">
+                      <CardTitle>{node.label}</CardTitle>
+                      <CardDescription>{node.focus}</CardDescription>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardFooter className="mt-auto px-5 py-3 text-xs text-muted-foreground">
                   {count} {count === 1 ? 'file' : 'files'}
