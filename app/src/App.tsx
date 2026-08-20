@@ -849,7 +849,7 @@ function Article({
   const kind = fileKind(page.file)
   const markdown = kind === 'markdown'
   return (
-    <article className={`mx-auto flex w-full flex-col gap-6 px-6 py-8 ${kind === 'html' && !editing ? 'max-w-5xl' : 'max-w-3xl'}`}>
+    <article className={`mx-auto flex w-full flex-col gap-6 px-6 py-8 ${kind === 'html' ? 'max-w-5xl' : 'max-w-3xl'}`}>
       <header className="grid gap-2">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           {section?.label || 'Notes'}

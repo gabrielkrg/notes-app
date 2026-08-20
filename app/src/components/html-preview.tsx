@@ -1,11 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   collectPreviewAssetPaths,
   HTML_PREVIEW_SANDBOX,
   isHtmlPreviewHeightMessage,
+  isHtmlPreviewScrollMessage,
+  isHtmlPreviewStorageMessage,
+  readPreviewStorage,
   rewriteHtmlPreview,
+  scrollOffsetForPreview,
+  withPreviewBootstrap,
   withPreviewHeightReporter,
+  writePreviewStorage,
 } from '@/lib/html-preview.ts'
 
 function previewSrcDoc(
@@ -13,8 +19,23 @@ function previewSrcDoc(
   html: string,
   files: Record<string, string>,
   loadAsset?: (asset: string) => string | null,
+  storage?: Record<string, string>,
 ) {
-  return withPreviewHeightReporter(rewriteHtmlPreview(file, html, files, loadAsset))
+  return withPreviewHeightReporter(
+    withPreviewBootstrap(rewriteHtmlPreview(file, html, files, loadAsset), storage ?? readPreviewStorage(file)),
+  )
+}
+
+function scrollParentOf(el: HTMLElement): HTMLElement {
+  let node: HTMLElement | null = el.parentElement
+  while (node && node !== document.body) {
+    const overflowY = getComputedStyle(node).overflowY
+    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') return node
+    node = node.parentElement
+  }
+  return document.scrollingElement instanceof HTMLElement
+    ? document.scrollingElement
+    : document.documentElement
 }
 
 export function HtmlPreview({
@@ -28,8 +49,14 @@ export function HtmlPreview({
   files: Record<string, string>
   title: string
 }) {
-  const [srcDoc, setSrcDoc] = useState(() => previewSrcDoc(file, html, files))
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const storageRef = useRef(readPreviewStorage(file))
+  const [srcDoc, setSrcDoc] = useState(() => previewSrcDoc(file, html, files, undefined, storageRef.current))
   const [height, setHeight] = useState(0)
+
+  useEffect(() => {
+    storageRef.current = readPreviewStorage(file)
+  }, [file])
 
   useEffect(() => {
     let cancelled = false
@@ -37,7 +64,7 @@ export function HtmlPreview({
     const readAsset = window.desktop?.readAsset
     setHeight(0)
     if (!readAsset || !paths.length) {
-      setSrcDoc(previewSrcDoc(file, html, files))
+      setSrcDoc(previewSrcDoc(file, html, files, undefined, storageRef.current))
       return
     }
     Promise.all(
@@ -55,7 +82,7 @@ export function HtmlPreview({
       for (const [asset, dataUrl] of entries) {
         if (dataUrl) map[asset] = dataUrl
       }
-      setSrcDoc(previewSrcDoc(file, html, files, (asset) => map[asset] || null))
+      setSrcDoc(previewSrcDoc(file, html, files, (asset) => map[asset] || null, storageRef.current))
     })
     return () => {
       cancelled = true
@@ -64,15 +91,35 @@ export function HtmlPreview({
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
-      if (!isHtmlPreviewHeightMessage(event.data)) return
-      setHeight(event.data.height)
+      if (event.source !== iframeRef.current?.contentWindow) return
+      if (isHtmlPreviewHeightMessage(event.data)) {
+        setHeight(event.data.height)
+        return
+      }
+      if (isHtmlPreviewStorageMessage(event.data)) {
+        storageRef.current = event.data.data
+        writePreviewStorage(file, event.data.data)
+        return
+      }
+      if (isHtmlPreviewScrollMessage(event.data)) {
+        const iframe = iframeRef.current
+        if (!iframe) return
+        const scroller = scrollParentOf(iframe)
+        const iframeRect = iframe.getBoundingClientRect()
+        const scrollerRect = scroller.getBoundingClientRect()
+        scroller.scrollTo({
+          top: Math.max(0, scrollOffsetForPreview(iframeRect.top, scrollerRect.top, scroller.scrollTop, event.data.y)),
+          behavior: 'smooth',
+        })
+      }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [])
+  }, [file])
 
   return (
     <iframe
+      ref={iframeRef}
       title={title}
       sandbox={HTML_PREVIEW_SANDBOX}
       srcDoc={srcDoc}

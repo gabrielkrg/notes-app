@@ -1,5 +1,172 @@
 export const HTML_PREVIEW_SANDBOX = 'allow-scripts'
 export const HTML_PREVIEW_HEIGHT_MESSAGE = 'notes-html-preview-height'
+export const HTML_PREVIEW_STORAGE_MESSAGE = 'notes-html-preview-storage'
+export const HTML_PREVIEW_SCROLL_MESSAGE = 'notes-html-preview-scroll'
+
+type StorageLike = {
+  getItem: (key: string) => string | null
+  setItem: (key: string, value: string) => void
+}
+
+export function previewStorageKey(file: string): string {
+  return `notes-html-preview:${file}`
+}
+
+function stringMap(value: unknown): Record<string, string> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const out: Record<string, string> = {}
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item !== 'string') return null
+    out[key] = item
+  }
+  return out
+}
+
+export function readPreviewStorage(file: string, storage?: StorageLike): Record<string, string> {
+  try {
+    const bag = storage ?? globalThis.localStorage
+    const parsed = JSON.parse(bag.getItem(previewStorageKey(file)) || 'null') as unknown
+    return stringMap(parsed) || {}
+  } catch {
+    return {}
+  }
+}
+
+export function writePreviewStorage(
+  file: string,
+  data: Record<string, string>,
+  storage?: StorageLike,
+): void {
+  const bag = storage ?? globalThis.localStorage
+  bag.setItem(previewStorageKey(file), JSON.stringify(data))
+}
+
+export function isHtmlPreviewStorageMessage(
+  data: unknown,
+): data is { type: typeof HTML_PREVIEW_STORAGE_MESSAGE; data: Record<string, string> } {
+  if (!data || typeof data !== 'object') return false
+  const payload = data as { type?: unknown; data?: unknown }
+  const map = stringMap(payload.data)
+  return payload.type === HTML_PREVIEW_STORAGE_MESSAGE && map != null
+}
+
+export function isHtmlPreviewScrollMessage(
+  data: unknown,
+): data is { type: typeof HTML_PREVIEW_SCROLL_MESSAGE; y: number } {
+  if (!data || typeof data !== 'object') return false
+  const payload = data as { type?: unknown; y?: unknown }
+  return (
+    payload.type === HTML_PREVIEW_SCROLL_MESSAGE &&
+    typeof payload.y === 'number' &&
+    Number.isFinite(payload.y)
+  )
+}
+
+export function scrollOffsetForPreview(
+  iframeTop: number,
+  scrollerTop: number,
+  scrollerScrollTop: number,
+  targetY: number,
+): number {
+  return scrollerScrollTop + (iframeTop - scrollerTop) + targetY
+}
+
+function embedJson(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029')
+}
+
+export function previewBootstrapSource(): string {
+  return `function notesPreviewBootstrap(initial) {
+  var data = {};
+  if (initial && typeof initial === 'object') {
+    for (var key in initial) {
+      if (Object.prototype.hasOwnProperty.call(initial, key) && typeof initial[key] === 'string') {
+        data[key] = initial[key];
+      }
+    }
+  }
+  function copyOf(map) {
+    var out = {};
+    for (var key in map) {
+      if (Object.prototype.hasOwnProperty.call(map, key)) out[key] = map[key];
+    }
+    return out;
+  }
+  function memoryStorage(map, persist) {
+    var storage = {
+      getItem: function (key) {
+        key = String(key);
+        return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : null;
+      },
+      setItem: function (key, value) {
+        map[String(key)] = String(value);
+        if (persist) notify();
+      },
+      removeItem: function (key) {
+        delete map[String(key)];
+        if (persist) notify();
+      },
+      clear: function () {
+        for (var key in map) {
+          if (Object.prototype.hasOwnProperty.call(map, key)) delete map[key];
+        }
+        if (persist) notify();
+      },
+      key: function (index) {
+        var keys = Object.keys(map);
+        return index >= 0 && index < keys.length ? keys[index] : null;
+      }
+    };
+    Object.defineProperty(storage, 'length', {
+      get: function () { return Object.keys(map).length; }
+    });
+    return storage;
+  }
+  function notify() {
+    try {
+      parent.postMessage({ type: ${JSON.stringify(HTML_PREVIEW_STORAGE_MESSAGE)}, data: copyOf(data) }, '*');
+    } catch (err) {}
+  }
+  function define(name, storage) {
+    try {
+      Object.defineProperty(window, name, { configurable: true, enumerable: true, value: storage });
+    } catch (err) {}
+  }
+  define('localStorage', memoryStorage(data, true));
+  define('sessionStorage', memoryStorage({}, false));
+  document.addEventListener('click', function (event) {
+    var node = event.target;
+    while (node && node.nodeType !== 1) node = node.parentNode;
+    while (node && String(node.tagName).toUpperCase() !== 'A') node = node.parentNode;
+    if (!node || !node.getAttribute) return;
+    var href = String(node.getAttribute('href') || '').trim();
+    if (!href || href.charAt(0) !== '#') return;
+    if (event.preventDefault) event.preventDefault();
+    var id = href.slice(1);
+    try { id = decodeURIComponent(id); } catch (err) {}
+    if (!id) return;
+    var target = document.getElementById(id);
+    if (!target) {
+      var named = document.getElementsByName(id);
+      target = named && named[0];
+    }
+    if (!target || !target.getBoundingClientRect) return;
+    try {
+      parent.postMessage({ type: ${JSON.stringify(HTML_PREVIEW_SCROLL_MESSAGE)}, y: target.getBoundingClientRect().top }, '*');
+    } catch (err) {}
+  }, true);
+}`
+}
+
+export function withPreviewBootstrap(html: string, storage: Record<string, string> = {}): string {
+  const script = `<script data-notes-preview-runtime>(function(){${previewBootstrapSource()};notesPreviewBootstrap(${embedJson(storage)});})();</script>`
+  if (/<head\b[^>]*>/i.test(html)) return html.replace(/<head\b[^>]*>/i, (open) => `${open}${script}`)
+  if (/<html\b[^>]*>/i.test(html)) return html.replace(/<html\b[^>]*>/i, (open) => `${open}${script}`)
+  return `${script}${html}`
+}
 
 export type PreviewAssetLoader = (file: string) => string | null
 
