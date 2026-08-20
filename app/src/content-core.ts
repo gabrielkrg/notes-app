@@ -219,7 +219,11 @@ function sortNodes(nodes: NavNode[]): void {
   }
 }
 
-function buildNavTree(pages: Pages, githubNames: Record<string, string> = {}): NavNode[] {
+function buildNavTree(
+  pages: Pages,
+  githubNames: Record<string, string> = {},
+  forcedRootLabels: string[] = [],
+): NavNode[] {
   const root: NavDirNode = { type: 'dir', id: '', path: '', label: 'Notes', order: 0, children: [] }
   const dirs = new Map<string, NavDirNode>([['', root]])
 
@@ -268,6 +272,10 @@ function buildNavTree(pages: Pages, githubNames: Record<string, string> = {}): N
     })
   }
 
+  for (const label of forcedRootLabels) {
+    ensureDir(label)
+  }
+
   sortNodes(root.children)
   return root.children
 }
@@ -275,6 +283,7 @@ function buildNavTree(pages: Pages, githubNames: Record<string, string> = {}): N
 export type BuildContentOptions = {
   githubFiles?: Iterable<string>
   githubNames?: Record<string, string>
+  localRootLabels?: string[]
 }
 
 export function buildContent(rawPages: Record<string, string> = {}, options: BuildContentOptions = {}): Content {
@@ -283,7 +292,7 @@ export function buildContent(rawPages: Record<string, string> = {}, options: Bui
   )
   const githubNames = { ...(options.githubNames || {}) }
   const pages = buildPages(rawPages, githubFiles)
-  const navTree = buildNavTree(pages, githubNames)
+  const navTree = buildNavTree(pages, githubNames, options.localRootLabels || [])
   const topicPages = Object.values(pages).filter((page) => !page.isIndex)
   return {
     pages,
