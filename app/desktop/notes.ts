@@ -2,18 +2,18 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { app, dialog, safeStorage } from 'electron'
 
-import { deleteFolderAt, deleteNoteAt } from '../browser/src/lib/note-delete.ts'
-import { isNoteFile, noteFileFromName, starterMarkdown, type NoteKind } from '../browser/src/lib/note-name.ts'
-import { resolveInside } from '../browser/src/lib/note-path.ts'
+import { deleteFolderAt, deleteNoteAt } from '../src/lib/note-delete.ts'
+import { isNoteFile, noteFileFromName, starterMarkdown, type NoteKind } from '../src/lib/note-name.ts'
+import { resolveInside } from '../src/lib/note-path.ts'
 import {
   labelNotesRoots,
   mergeRootPages,
   resolveVirtualNote,
   rootsFromSettings,
   type AppSettings,
-} from '../browser/src/lib/notes-roots.ts'
-import { acceptedNotesRoots, isTooBroadNotesRoot, loadNotesRoots } from '../browser/src/lib/notes-walk.ts'
-import { createFileGithubCache } from '../browser/src/lib/github-file-cache.ts'
+} from '../src/lib/notes-roots.ts'
+import { acceptedNotesRoots, isTooBroadNotesRoot, loadNotesRoots } from '../src/lib/notes-walk.ts'
+import { createFileGithubCache } from '../src/lib/github-file-cache.ts'
 import {
   fetchGithubRootFiles,
   isGithubVirtualPath,
@@ -21,7 +21,7 @@ import {
   remotesFromSettings,
   topLevelLabels,
   type GithubRemote,
-} from '../browser/src/lib/github-notes.ts'
+} from '../src/lib/github-notes.ts'
 
 function settingsFile(): string {
   return path.join(app.getPath('userData'), 'settings.json')

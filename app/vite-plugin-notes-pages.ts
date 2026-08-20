@@ -1,8 +1,8 @@
 import path from 'node:path'
 import type { Plugin } from 'vite'
 
-import { mergeRootPages } from './browser/src/lib/notes-roots.ts'
-import { loadNotesRoots } from './browser/src/lib/notes-walk.ts'
+import { mergeRootPages } from './src/lib/notes-roots.ts'
+import { loadNotesRoots } from './src/lib/notes-walk.ts'
 
 export function notesPagesPlugin(notesRoots: string[] = []): Plugin {
   const virtualId = 'virtual:notes-pages'

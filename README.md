@@ -2,11 +2,11 @@
 
 A local desk for markdown (and `.txt`) files. Notes stay on disk. Folders are menu groups.
 
-The browser app is a reader. The desktop app can also create, edit, and delete notes.
+In the browser, the app is a reader. The desktop app can also create, edit, and delete notes.
 
 ```bash
 npm install
-cp .env.example .env   # optional; defaults to this repo's notes/ folder
+cp app/.env.example app/.env   # optional; defaults to this repo's notes/ folder
 npm run dev
 ```
 
@@ -88,7 +88,7 @@ Wiki links in the body (`[Arrays](arrays.md)`) become edges on the graph.
 
 ## Configuration
 
-Copy [`.env.example`](.env.example) to `.env`. Restart the dev server after changing it.
+Copy [`app/.env.example`](app/.env.example) to `app/.env`. Restart the dev server after changing it.
 
 | Variable | What it does |
 |---|---|
@@ -104,7 +104,7 @@ The packaged desktop app ships with the repo `notes/` folder and remembers extra
 
 ## Build the desktop app
 
-Install once, then package on the OS you want to ship. Artifacts land in `release/`.
+Install once, then package on the OS you want to ship. Artifacts land in `app/release/`.
 
 ```bash
 npm install
@@ -128,23 +128,25 @@ Unsigned builds: macOS Gatekeeper and Windows SmartScreen will warn on first ope
 
 | Command | |
 |---|---|
-| `npm run dev` | Browser app |
+| `npm run dev` | Web app |
 | `npm run desktop` | Electron app |
 | `npm test` | Node tests |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run build` | Browser production build → `dist/` |
-| `npm run desktop:build` | Linux AppImage → `release/` |
-| `npm run desktop:build:linux` | Linux AppImage → `release/` |
-| `npm run desktop:build:win` | Windows NSIS installer → `release/` |
-| `npm run desktop:build:mac` | macOS disk image → `release/` |
+| `npm run build` | Web production build → `app/dist/` |
+| `npm run desktop:build` | Linux AppImage → `app/release/` |
+| `npm run desktop:build:linux` | Linux AppImage → `app/release/` |
+| `npm run desktop:build:win` | Windows NSIS installer → `app/release/` |
+| `npm run desktop:build:mac` | macOS disk image → `app/release/` |
 
 ---
 
 ## Layout of this repo
 
 ```
-browser/               React UI (Vite)
-desktop/               Electron main / preload
+app/                   the app (UI, Electron, Vite, package.json)
+  desktop/             Electron main / preload
+  dist/                web build
+  dist-electron/       Electron main build
+  release/             packaged installers
 notes/                 default notes tree
-vite-plugin-notes-pages.ts   walks the notes roots into the app
 ```

@@ -4,15 +4,15 @@ import react from '@vitejs/plugin-react'
 import electron from 'vite-plugin-electron/simple'
 import { defineConfig } from 'vite'
 
-import { browserDir, desktopDir, loadAppEnv, rootDir } from '../vite.shared.ts'
+import { appDir, desktopDir, loadAppEnv, repoDir } from '../vite.shared.ts'
 import { notesPagesPlugin } from '../vite-plugin-notes-pages.ts'
 
 export default defineConfig(({ mode }) => {
   const { notesRoots, port } = loadAppEnv(mode)
 
   return {
-    root: browserDir,
-    envDir: rootDir,
+    root: appDir,
+    envDir: appDir,
     base: './',
     plugins: [
       react(),
@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
           entry: path.join(desktopDir, 'main.ts'),
           vite: {
             build: {
-              outDir: path.join(rootDir, 'dist-electron'),
+              outDir: path.join(appDir, 'dist-electron'),
             },
           },
         },
@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
           input: path.join(desktopDir, 'preload.ts'),
           vite: {
             build: {
-              outDir: path.join(rootDir, 'dist-electron'),
+              outDir: path.join(appDir, 'dist-electron'),
             },
           },
         },
@@ -42,17 +42,17 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        '@': path.join(browserDir, 'src'),
+        '@': path.join(appDir, 'src'),
       },
     },
     server: {
       port,
       fs: {
-        allow: [rootDir, ...notesRoots],
+        allow: [appDir, repoDir, ...notesRoots],
       },
     },
     build: {
-      outDir: path.join(rootDir, 'dist'),
+      outDir: path.join(appDir, 'dist'),
       emptyOutDir: true,
     },
   }

@@ -45,6 +45,7 @@ import { GithubMark } from '@/components/github-mark.tsx'
 import { GRAPH_ROUTE, hrefForNode, isGraphRoute, type NavDirNode, type NavNode, type NavPageNode } from '@/content.ts'
 import { isGithubVirtualPath } from '@/lib/github-notes.ts'
 import { attachedRootForDir } from '@/lib/notes-roots.ts'
+import { depthPad, treeLine } from '@/lib/sidebar-tree.ts'
 import type { DeleteTarget } from '@/lib/note-delete.ts'
 import type { NoteKind } from '@/lib/note-name.ts'
 
@@ -71,23 +72,20 @@ function useAccordion(nodes: NavNode[], route: string) {
   return [openId, setOpenId] as const
 }
 
-const DEPTH_PAD = [undefined, 'pl-8', 'pl-10', 'pl-12', 'pl-14']
-const TREE_LINE = [
-  'relative before:pointer-events-none before:absolute before:inset-y-1 before:left-4 before:w-px before:bg-sidebar-border',
-  'relative before:pointer-events-none before:absolute before:inset-y-1 before:left-7 before:w-px before:bg-sidebar-border',
-  'relative before:pointer-events-none before:absolute before:inset-y-1 before:left-10 before:w-px before:bg-sidebar-border',
-]
-
-function depthPad(depth: number) {
-  return DEPTH_PAD[Math.min(depth, DEPTH_PAD.length - 1)]
-}
-
-function treeLine(depth: number) {
-  return TREE_LINE[Math.min(depth, TREE_LINE.length - 1)]
-}
-
 function stopMenuBubble(event: { stopPropagation(): void }) {
   event.stopPropagation()
+}
+
+function TreeTwist({ open = false, expandable }: { open?: boolean; expandable: boolean }) {
+  if (!expandable) {
+    return <span className="size-4 shrink-0 group-data-[collapsible=icon]:hidden" aria-hidden />
+  }
+
+  return (
+    <ChevronRight
+      className={`shrink-0 transition-transform duration-200 group-data-[collapsible=icon]:hidden ${open ? 'rotate-90' : ''}`}
+    />
+  )
 }
 
 function ItemMenu({
@@ -400,11 +398,7 @@ function FolderNode({
 
   const label = (
     <>
-      {children.length > 0 && (
-        <ChevronRight
-          className={`shrink-0 transition-transform duration-200 group-data-[collapsible=icon]:hidden ${open ? 'rotate-90' : ''}`}
-        />
-      )}
+      <TreeTwist open={open} expandable={children.length > 0} />
       <Icon />
       <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">{node.label}</span>
       {isGithubRoot && (
@@ -494,6 +488,7 @@ function PageLink({
   const active = route === page.route
   const label = (
     <>
+      <TreeTwist expandable={false} />
       <FileText />
       <span className="min-w-0 truncate">{node.label}</span>
       {done.has(page.file) && (

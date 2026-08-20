@@ -1,7 +1,9 @@
 node_modules
-dist
-dist-electron
-release
-.env
-.env.local
-.env.*.local
+
+# App outputs and local config
+app/dist
+app/dist-electron
+app/release
+app/.env
+app/.env.local
+app/.env.*.local

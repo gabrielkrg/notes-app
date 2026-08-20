@@ -15,12 +15,13 @@
     "verbatimModuleSyntax": true,
     "types": ["vite/client", "node"],
     "paths": {
-      "@/*": ["./browser/src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": [
-    "browser",
+    "src",
     "desktop",
+    "vite.config.ts",
     "vite.shared.ts",
     "vite-plugin-notes-pages.ts"
   ]

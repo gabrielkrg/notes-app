@@ -3,15 +3,15 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-import { browserDir, loadAppEnv, rootDir } from '../vite.shared.ts'
-import { notesPagesPlugin } from '../vite-plugin-notes-pages.ts'
+import { appDir, loadAppEnv, repoDir } from './vite.shared.ts'
+import { notesPagesPlugin } from './vite-plugin-notes-pages.ts'
 
 export default defineConfig(({ mode }) => {
   const { notesRoots, port } = loadAppEnv(mode)
 
   return {
-    root: browserDir,
-    envDir: rootDir,
+    root: appDir,
+    envDir: appDir,
     base: './',
     plugins: [react(), tailwindcss(), notesPagesPlugin(notesRoots)],
     define: {
@@ -19,17 +19,17 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        '@': path.join(browserDir, 'src'),
+        '@': path.join(appDir, 'src'),
       },
     },
     server: {
       port,
       fs: {
-        allow: [rootDir, ...notesRoots],
+        allow: [appDir, repoDir, ...notesRoots],
       },
     },
     build: {
-      outDir: path.join(rootDir, 'dist'),
+      outDir: path.join(appDir, 'dist'),
       emptyOutDir: true,
     },
   }

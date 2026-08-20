@@ -2,16 +2,16 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadEnv } from 'vite'
 
-import { parseNotesRootEnv } from './browser/src/lib/notes-roots.ts'
+import { parseNotesRootEnv } from './src/lib/notes-roots.ts'
 
-export const rootDir = path.dirname(fileURLToPath(import.meta.url))
-export const browserDir = path.join(rootDir, 'browser')
-export const desktopDir = path.join(rootDir, 'desktop')
+export const appDir = path.dirname(fileURLToPath(import.meta.url))
+export const repoDir = path.join(appDir, '..')
+export const desktopDir = path.join(appDir, 'desktop')
 
 export function loadAppEnv(mode: string) {
-  const env = loadEnv(mode, rootDir, '')
+  const env = loadEnv(mode, appDir, '')
   const configured = parseNotesRootEnv(env.VITE_NOTES_ROOT || '')
-  const notesRoots = (configured.length ? configured : [path.join(rootDir, 'notes')]).map((dir) =>
+  const notesRoots = (configured.length ? configured : [path.join(repoDir, 'notes')]).map((dir) =>
     path.resolve(dir),
   )
   const notesRoot = notesRoots[0]

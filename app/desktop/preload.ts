@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-import type { CreateNoteInput, DeleteFolderInput, GithubRemoteInput } from '../browser/src/lib/desktop.ts'
+import type { CreateNoteInput, DeleteFolderInput, GithubRemoteInput } from '../src/lib/desktop.ts'
 
 contextBridge.exposeInMainWorld('desktop', {
   openNote: (file: string) => ipcRenderer.invoke('open-note', file),

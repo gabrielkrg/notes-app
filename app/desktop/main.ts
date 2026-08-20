@@ -28,10 +28,11 @@ import {
 } from './notes.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const appDir = path.join(__dirname, '..')
+const packageDir = path.join(__dirname, '..')
+const repoDir = path.join(packageDir, '..')
 const appIcon = [
-  path.join(__dirname, '../dist/favicon/favicon-96x96.png'),
-  path.join(appDir, 'browser/public/favicon/favicon-96x96.png'),
+  path.join(packageDir, 'dist/favicon/favicon-96x96.png'),
+  path.join(packageDir, 'public/favicon/favicon-96x96.png'),
 ].find((file) => fs.existsSync(file))
 
 let mainWindow: BrowserWindow | null = null
@@ -45,7 +46,7 @@ function focusMainWindow() {
 }
 
 function openNote(file: string): Promise<void> {
-  const abs = resolveNoteFile(appDir, file)
+  const abs = resolveNoteFile(repoDir, file)
   if (!fs.existsSync(abs)) {
     return Promise.reject(new Error(`Note not found: ${abs}`))
   }
@@ -98,7 +99,7 @@ function createWindow(): BrowserWindow {
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL)
   } else {
-    win.loadFile(path.join(__dirname, '../dist/index.html'))
+    win.loadFile(path.join(packageDir, 'dist/index.html'))
   }
 
   return win
@@ -123,14 +124,14 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     ipcMain.handle('open-note', (_event, file: string) => openNote(String(file || '')))
-    ipcMain.handle('list-notes', wrap(() => listNotes(appDir)))
-    ipcMain.handle('write-note', wrap((file: string, content: string) => writeNote(appDir, file, content)))
-    ipcMain.handle('create-note', wrap((opts: CreateOpts) => createNote(appDir, opts || {})))
-    ipcMain.handle('create-folder', wrap((opts: CreateOpts) => createFolder(appDir, opts || {})))
-    ipcMain.handle('delete-note', wrap((file: string) => deleteNote(appDir, file)))
-    ipcMain.handle('delete-folder', wrap((opts: { path?: string; confirmName?: string; expectedNames?: string[] }) => deleteFolder(appDir, opts || {})))
-    ipcMain.handle('get-notes-root', wrap(() => getNotesRoot(appDir)))
-    ipcMain.handle('get-notes-roots', wrap(() => getNotesRoots(appDir)))
+    ipcMain.handle('list-notes', wrap(() => listNotes(repoDir)))
+    ipcMain.handle('write-note', wrap((file: string, content: string) => writeNote(repoDir, file, content)))
+    ipcMain.handle('create-note', wrap((opts: CreateOpts) => createNote(repoDir, opts || {})))
+    ipcMain.handle('create-folder', wrap((opts: CreateOpts) => createFolder(repoDir, opts || {})))
+    ipcMain.handle('delete-note', wrap((file: string) => deleteNote(repoDir, file)))
+    ipcMain.handle('delete-folder', wrap((opts: { path?: string; confirmName?: string; expectedNames?: string[] }) => deleteFolder(repoDir, opts || {})))
+    ipcMain.handle('get-notes-root', wrap(() => getNotesRoot(repoDir)))
+    ipcMain.handle('get-notes-roots', wrap(() => getNotesRoots(repoDir)))
     ipcMain.handle('set-notes-root', wrap((dir: string) => setNotesRoot(dir)))
     ipcMain.handle('set-notes-roots', wrap((dirs: string[]) => setNotesRoots(dirs || [])))
     ipcMain.handle('pick-notes-folder', wrap(() => pickNotesFolder()))
