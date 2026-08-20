@@ -62,14 +62,18 @@ describe('selectGithubNoteEntries', () => {
     { path: '.github/ISSUE_TEMPLATE.md', type: 'blob', sha: 'd' },
     { path: 'docs/intro.md', type: 'blob', sha: 'e' },
     { path: 'docs/notes.txt', type: 'blob', sha: 'f' },
+    { path: 'docs/widget.html', type: 'blob', sha: 'h' },
+    { path: 'docs/theme.css', type: 'blob', sha: 'i' },
+    { path: 'docs/main.js', type: 'blob', sha: 'j' },
+    { path: 'docs/logo.png', type: 'blob', sha: 'k' },
     { path: 'docs', type: 'tree', sha: 'g' },
   ]
 
-  it('keeps only markdown and text blobs', () => {
+  it('keeps markdown, text, html, css, and js blobs', () => {
     const selected = selectGithubNoteEntries(tree)
     assert.deepEqual(
       selected.map((item) => item.path),
-      ['README.md', 'docs/intro.md', 'docs/notes.txt'],
+      ['README.md', 'docs/intro.md', 'docs/notes.txt', 'docs/widget.html', 'docs/theme.css', 'docs/main.js'],
     )
   })
 
@@ -77,7 +81,7 @@ describe('selectGithubNoteEntries', () => {
     const selected = selectGithubNoteEntries(tree, { subpath: 'docs' })
     assert.deepEqual(
       selected.map((item) => item.path),
-      ['intro.md', 'notes.txt'],
+      ['intro.md', 'notes.txt', 'widget.html', 'theme.css', 'main.js'],
     )
   })
 

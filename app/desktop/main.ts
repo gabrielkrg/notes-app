@@ -10,6 +10,7 @@ import {
   createNote,
   deleteFolder,
   deleteNote,
+  getDefaultNotesRoot,
   getGithubRemotes,
   getGithubSyncErrors,
   getNotesRoot,
@@ -18,7 +19,9 @@ import {
   isGithubTokenPersisted,
   listNotes,
   pickNotesFolder,
+  readAsset,
   resolveNoteFile,
+  setDefaultNotesRoot,
   setGithubRemotes,
   setGithubToken,
   setNotesRoot,
@@ -26,6 +29,7 @@ import {
   writeNote,
   type CreateOpts,
 } from './notes.ts'
+import { openWithLaunches, type OpenWithLaunch } from '../src/lib/open-with.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const packageDir = path.join(__dirname, '..')
@@ -45,27 +49,46 @@ function focusMainWindow() {
   app.focus({ steal: true })
 }
 
-function openNote(file: string): Promise<void> {
-  const abs = resolveNoteFile(repoDir, file)
-  if (!fs.existsSync(abs)) {
-    return Promise.reject(new Error(`Note not found: ${abs}`))
-  }
-
+function spawnOpen(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn('cursor', [abs], {
+    const child = spawn(command, args, {
       detached: true,
       stdio: 'ignore',
     })
-    child.once('error', async () => {
-      const err = await shell.openPath(abs)
-      if (err) reject(new Error(err))
-      else resolve()
-    })
+    child.once('error', reject)
     child.once('spawn', () => {
       child.unref()
       resolve()
     })
   })
+}
+
+async function tryLaunch(abs: string, launch: OpenWithLaunch): Promise<void> {
+  if (launch.kind === 'openPath') {
+    const err = await shell.openPath(abs)
+    if (err) throw new Error(err)
+    return
+  }
+  await spawnOpen(launch.command, launch.args)
+}
+
+async function openNote(file: string): Promise<void> {
+  const abs = resolveNoteFile(repoDir, file)
+  if (!fs.existsSync(abs)) {
+    throw new Error(`Note not found: ${abs}`)
+  }
+
+  let lastError: unknown
+  for (const launch of openWithLaunches(process.platform, abs)) {
+    try {
+      await tryLaunch(abs, launch)
+      return
+    } catch (err) {
+      lastError = err
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(`Could not open ${abs}`)
 }
 
 function wrap<A extends unknown[], R>(fn: (...args: A) => R) {
@@ -126,6 +149,7 @@ if (!gotTheLock) {
     ipcMain.handle('open-note', (_event, file: string) => openNote(String(file || '')))
     ipcMain.handle('list-notes', wrap(() => listNotes(repoDir)))
     ipcMain.handle('write-note', wrap((file: string, content: string) => writeNote(repoDir, file, content)))
+    ipcMain.handle('read-asset', wrap((file: string) => readAsset(repoDir, file)))
     ipcMain.handle('create-note', wrap((opts: CreateOpts) => createNote(repoDir, opts || {})))
     ipcMain.handle('create-folder', wrap((opts: CreateOpts) => createFolder(repoDir, opts || {})))
     ipcMain.handle('delete-note', wrap((file: string) => deleteNote(repoDir, file)))
@@ -134,6 +158,8 @@ if (!gotTheLock) {
     ipcMain.handle('get-notes-roots', wrap(() => getNotesRoots(repoDir)))
     ipcMain.handle('set-notes-root', wrap((dir: string) => setNotesRoot(dir)))
     ipcMain.handle('set-notes-roots', wrap((dirs: string[]) => setNotesRoots(dirs || [])))
+    ipcMain.handle('get-default-notes-root', wrap(() => getDefaultNotesRoot(repoDir)))
+    ipcMain.handle('set-default-notes-root', wrap((dir: string) => setDefaultNotesRoot(repoDir, dir)))
     ipcMain.handle('pick-notes-folder', wrap(() => pickNotesFolder()))
     ipcMain.handle('get-github-remotes', wrap(() => getGithubRemotes()))
     ipcMain.handle('set-github-remotes', wrap((remotes: Parameters<typeof setGithubRemotes>[0]) => setGithubRemotes(remotes || [])))

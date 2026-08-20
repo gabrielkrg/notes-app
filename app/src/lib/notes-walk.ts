@@ -20,7 +20,7 @@ const DEFAULT_MAX_DIRS = 20_000
 const DEFAULT_MAX_DEPTH = 24
 
 export class NotesFolderTooLargeError extends Error {
-  constructor(message = 'That folder is too large to open as notes. Choose a smaller folder of markdown files.') {
+  constructor(message = 'That folder is too large to open as notes. Choose a smaller folder of notes.') {
     super(message)
     this.name = 'NotesFolderTooLargeError'
   }

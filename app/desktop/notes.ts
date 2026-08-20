@@ -3,11 +3,15 @@ import path from 'node:path'
 import { app, dialog, safeStorage } from 'electron'
 
 import { deleteFolderAt, deleteNoteAt } from '../src/lib/note-delete.ts'
-import { isNoteFile, noteFileFromName, starterMarkdown, type NoteKind } from '../src/lib/note-name.ts'
+import { isNoteFile, noteFileFromName, parseNoteFileType, starterForType, type NoteKind } from '../src/lib/note-name.ts'
+import { readAssetAt } from '../src/lib/note-asset.ts'
 import { resolveInside } from '../src/lib/note-path.ts'
 import {
+  createParentPath,
+  defaultNotesRootFromSettings,
   labelNotesRoots,
   mergeRootPages,
+  persistableDefaultNotesRoot,
   resolveVirtualNote,
   rootsFromSettings,
   type AppSettings,
@@ -57,12 +61,22 @@ function existingDirs(dirs: string[]): string[] {
   })
 }
 
+function writeNotesRoots(next: string[], settings: AppSettings = readSettings()): string[] {
+  const defaultNotesRoot = persistableDefaultNotesRoot(settings, next)
+  const { notesRoot: _legacy, ...rest } = settings
+  writeSettings({
+    ...rest,
+    notesRoots: next,
+    defaultNotesRoot: defaultNotesRoot || undefined,
+  })
+  return next
+}
+
 export function notesRoots(appDir: string): string[] {
   const saved = existingDirs(rootsFromSettings(readSettings()).map((dir) => path.resolve(dir)))
   const usable = saved.filter((dir) => !isTooBroadNotesRoot(dir))
   if (usable.length !== saved.length) {
-    const { notesRoot: _legacy, ...rest } = readSettings()
-    writeSettings({ ...rest, notesRoots: usable })
+    writeNotesRoots(usable)
   }
   if (usable.length) return usable
   const fallback = defaultNotesRoot(appDir)
@@ -82,10 +96,21 @@ export function getNotesRoot(appDir: string): string {
 }
 
 export function setNotesRoots(dirs: string[]): string[] {
-  const next = acceptedNotesRoots(dirs)
-  const { notesRoot: _legacy, ...rest } = readSettings()
-  writeSettings({ ...rest, notesRoots: next })
-  return next
+  return writeNotesRoots(acceptedNotesRoots(dirs))
+}
+
+export function getDefaultNotesRoot(appDir: string): string {
+  return defaultNotesRootFromSettings(readSettings(), notesRoots(appDir))
+}
+
+export function setDefaultNotesRoot(appDir: string, dir: string): string {
+  const roots = notesRoots(appDir)
+  const resolved = path.resolve(String(dir || ''))
+  if (!roots.some((root) => path.resolve(root) === resolved)) {
+    throw new Error('Choose one of the attached notes folders')
+  }
+  writeSettings({ ...readSettings(), defaultNotesRoot: resolved })
+  return resolved
 }
 
 export function setNotesRoot(dir: string): string {
@@ -211,7 +236,7 @@ export async function listNotes(
 export function writeNote(appDir: string, file: string, content: string): { file: string } {
   const { abs, relative } = resolveInVault(appDir, file)
   if (!isNoteFile(relative)) {
-    throw new Error('Only markdown and text files can be saved')
+    throw new Error('Only markdown, text, HTML, CSS, and JS files can be saved')
   }
   fs.mkdirSync(path.dirname(abs), { recursive: true })
   fs.writeFileSync(abs, String(content ?? ''), 'utf8')
@@ -221,21 +246,24 @@ export function writeNote(appDir: string, file: string, content: string): { file
 export type CreateOpts = {
   parent?: string
   name?: string
+  type?: string
 }
 
-function createAt(appDir: string, { parent, name, kind }: CreateOpts & { kind: NoteKind }): { file: string; raw: string } {
-  assertLocalNote(parent || '')
+function createAt(appDir: string, { parent, name, kind, type }: CreateOpts & { kind: NoteKind }): { file: string; raw: string } {
   const vaults = labeled(appDir)
-  if (vaults.length > 0 && !String(parent || '').trim()) {
+  const parentPath = createParentPath(parent, notesRoots(appDir), getDefaultNotesRoot(appDir))
+  assertLocalNote(parentPath || parent || '')
+  if (vaults.length > 0 && !parentPath) {
     throw new Error('Choose a notes folder first')
   }
-  const file = noteFileFromName(name || '', { parent, kind })
+  const noteType = kind === 'folder' ? 'markdown' : parseNoteFileType(type)
+  const file = noteFileFromName(name || '', { parent: parentPath, kind, type: noteType })
   const { abs } = resolveInVault(appDir, file)
   if (fs.existsSync(abs)) {
     throw new Error('A note with that name already exists')
   }
   const title = String(name || '').trim()
-  const raw = starterMarkdown({ title })
+  const raw = starterForType(noteType, title)
   fs.mkdirSync(path.dirname(abs), { recursive: true })
   fs.writeFileSync(abs, raw, 'utf8')
   return { file, raw }
@@ -251,6 +279,11 @@ export function createFolder(appDir: string, opts: CreateOpts = {}): { file: str
 
 export function resolveNoteFile(appDir: string, file: string): string {
   return resolveInVault(appDir, file).abs
+}
+
+export function readAsset(appDir: string, file: string): { file: string; dataUrl: string } {
+  const { root, relative } = resolveInVault(appDir, file)
+  return readAssetAt(root, relative)
 }
 
 export function deleteNote(appDir: string, file: string): { file: string } {

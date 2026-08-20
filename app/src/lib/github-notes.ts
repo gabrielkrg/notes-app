@@ -18,7 +18,7 @@ const API_ROOT = 'https://api.github.com'
 
 export class GithubNotesTooLargeError extends Error {
   constructor(
-    message = 'That GitHub repository is too large to open as notes. Use a smaller folder of markdown files.',
+    message = 'That GitHub repository is too large to open as notes. Use a smaller folder of notes.',
   ) {
     super(message)
     this.name = 'GithubNotesTooLargeError'

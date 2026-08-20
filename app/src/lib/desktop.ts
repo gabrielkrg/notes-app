@@ -1,6 +1,7 @@
 export type CreateNoteInput = {
   parent?: string
   name: string
+  type?: 'markdown' | 'html' | 'css' | 'js'
 }
 
 export type CreatedNote = {
@@ -29,10 +30,16 @@ export type NotesSnapshot = {
   githubNames?: Record<string, string>
 }
 
+export type AssetResult = {
+  file: string
+  dataUrl: string
+}
+
 export type DesktopApi = {
   openNote(file: string): Promise<void>
   listNotes(): Promise<NotesSnapshot>
   writeNote(file: string, content: string): Promise<{ file: string }>
+  readAsset(file: string): Promise<AssetResult>
   createNote(opts: CreateNoteInput): Promise<CreatedNote>
   createFolder(opts: CreateNoteInput): Promise<CreatedNote>
   deleteNote(file: string): Promise<{ file: string }>
@@ -41,6 +48,8 @@ export type DesktopApi = {
   getNotesRoots(): Promise<string[]>
   setNotesRoot(dir: string): Promise<string>
   setNotesRoots(dirs: string[]): Promise<string[]>
+  getDefaultNotesRoot(): Promise<string>
+  setDefaultNotesRoot(dir: string): Promise<string>
   pickNotesFolder(): Promise<string | null>
   getGithubRemotes(): Promise<GithubRemoteInput[]>
   setGithubRemotes(remotes: GithubRemoteInput[]): Promise<GithubRemoteInput[]>

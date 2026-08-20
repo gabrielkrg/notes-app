@@ -31,6 +31,20 @@ describe('walkNotes', () => {
     assert.equal(files['php/notes.md'], '# Nested name\n')
   })
 
+  it('reads html, css, and js notes and skips images', () => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'notes-walk-'))
+    fs.writeFileSync(path.join(root, 'widget.html'), '<h1>Widget</h1>\n')
+    fs.writeFileSync(path.join(root, 'theme.css'), 'body{}\n')
+    fs.writeFileSync(path.join(root, 'main.js'), 'console.log(1)\n')
+    fs.writeFileSync(path.join(root, 'logo.png'), 'not-an-image')
+
+    const files = walkNotes(root)
+    assert.equal(files['widget.html'], '<h1>Widget</h1>\n')
+    assert.equal(files['theme.css'], 'body{}\n')
+    assert.equal(files['main.js'], 'console.log(1)\n')
+    assert.equal(files['logo.png'], undefined)
+  })
+
   it('skips markdown files inside node_modules', () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'notes-walk-'))
     fs.writeFileSync(path.join(root, 'keep.md'), '# Keep\n')

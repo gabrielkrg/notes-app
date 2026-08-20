@@ -33,7 +33,7 @@ export function confirmFolderName(typed: string, allowedNames: string[] = []): b
 export function deleteNoteAt(root: string, file: string): { file: string } {
   const rel = String(file || '').replace(/\\/g, '/')
   if (!isNoteFile(rel)) {
-    throw new Error('Only markdown and text files can be deleted')
+    throw new Error('Only markdown, text, HTML, CSS, and JS files can be deleted')
   }
   const abs = resolveInside(root, rel)
   if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) {

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type MouseEvent, type RefObject } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from 'react'
 import {
   Check,
   ChevronLeft,
@@ -45,9 +45,11 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { NoteEditor, type NoteEditorHandle } from '@/components/note-editor'
+import { CodeEditor, type CodeEditorHandle } from '@/components/code-editor'
+import { HtmlPreview } from '@/components/html-preview'
 import { SearchCommand, SearchTrigger } from '@/components/search-command'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { HighlightProvider } from '@/lib/highlight-provider.tsx'
 import { ThemeProvider } from '@/lib/theme'
 import { noteEditorHref, storageKey } from '@/lib/config.ts'
@@ -56,9 +58,10 @@ import type { CreatedNote } from '@/lib/desktop.ts'
 import { fetchBrowserGithubNotes } from '@/lib/github-client.ts'
 import { isGithubVirtualPath, topLevelLabels } from '@/lib/github-notes.ts'
 import { CtrlKChord } from '@/lib/key-chords'
-import { labelNotesRoots } from '@/lib/notes-roots.ts'
+import { labelForRoot, labelNotesRoots } from '@/lib/notes-roots.ts'
 import type { DeleteTarget } from '@/lib/note-delete.ts'
 import type { NoteKind } from '@/lib/note-name.ts'
+import { fileKind } from '@/lib/note-name.ts'
 import MarkdownView from './MarkdownView.tsx'
 import {
   bundledContent,
@@ -68,6 +71,7 @@ import {
   crumbsForRoute,
   dirForIndex,
   dirForRoute,
+  hoistNavRoot,
   hrefForNode,
   isGraphRoute,
   neighbors,
@@ -121,6 +125,7 @@ export default function App() {
   const desktop = isDesktop()
   const [content, setContent] = useState<Content>(() => (desktop ? emptyContent() : bundledContent))
   const [roots, setRoots] = useState<string[]>([])
+  const [defaultRoot, setDefaultRoot] = useState('')
   const [loading, setLoading] = useState(desktop)
   const [loadError, setLoadError] = useState('')
   const [githubError, setGithubError] = useState('')
@@ -136,11 +141,13 @@ export default function App() {
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState<Set<string>>(loadDone)
   const contentRef = useRef<HTMLDivElement>(null)
-  const editorRef = useRef<NoteEditorHandle | null>(null)
+  const editorRef = useRef<NoteEditorHandle | CodeEditorHandle | null>(null)
   const chordRef = useRef<CtrlKChord | null>(null)
   if (!chordRef.current) chordRef.current = new CtrlKChord()
 
   const tree = content.navTree
+  const defaultLabel = labelForRoot(roots, defaultRoot)
+  const canCreateAtRoot = desktop && (Boolean(defaultLabel) || roots.length === 0)
   const showingGraph = isGraphRoute(route)
   const page = showingGraph ? null : pageByRoute(content.pages, route)
   const folderOverview = !page && !showingGraph ? dirForRoute(tree, route) : null
@@ -149,6 +156,10 @@ export default function App() {
   const crumbs = crumbsForRoute(tree, route)
   const { prev, next } = neighbors(tree, route)
   const last = localStorage.getItem(LAST_KEY)
+  const previewFiles = useMemo(
+    () => Object.fromEntries(Object.values(content.pages).map((item) => [item.file, item.raw])),
+    [content.pages],
+  )
 
   async function reloadNotes() {
     setLoadError('')
@@ -160,14 +171,21 @@ export default function App() {
           currentRoots = await window.desktop.getNotesRoots()
           setRoots(currentRoots)
         }
+        let currentDefault = defaultRoot
+        if (window.desktop.getDefaultNotesRoot) {
+          currentDefault = await window.desktop.getDefaultNotesRoot()
+          setDefaultRoot(currentDefault)
+        }
         const snapshot = await window.desktop.listNotes()
-        setContent(
-          buildContent(snapshot.files, {
-            githubFiles: snapshot.githubFiles,
-            githubNames: snapshot.githubNames,
-            localRootLabels: labelNotesRoots(currentRoots).map((item) => item.label),
-          }),
-        )
+        const built = buildContent(snapshot.files, {
+          githubFiles: snapshot.githubFiles,
+          githubNames: snapshot.githubNames,
+          localRootLabels: labelNotesRoots(currentRoots).map((item) => item.label),
+        })
+        setContent({
+          ...built,
+          navTree: hoistNavRoot(built.navTree, labelForRoot(currentRoots, currentDefault)),
+        })
         if (window.desktop.getGithubSyncErrors) {
           const errors = await window.desktop.getGithubSyncErrors()
           setGithubError(errors.map((item) => item.message).filter(Boolean).join(' '))
@@ -381,14 +399,16 @@ function startEditing() {
             topicCount={content.topicCount}
             onGo={go}
             canCreate={desktop}
-            canCreateAtRoot={desktop && roots.length === 0}
-            protectRootFolders={roots.length > 0}
+            canCreateAtRoot={canCreateAtRoot}
             roots={roots}
             githubLabels={content.githubLabels}
             onCreate={(next: CreateState) => {
               if (!confirmLeave()) return
               if (isGithubVirtualPath(next.parent, content.githubLabels)) return
-              setCreateState(next)
+              setCreateState({
+                ...next,
+                parent: next.parent || defaultLabel,
+              })
             }}
             onDelete={
               desktop
@@ -469,22 +489,27 @@ function startEditing() {
                   {done.has(page.file) ? 'Read' : 'Mark as read'}
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Refresh notes"
-                disabled={refreshing}
-                onClick={async () => {
-                  setRefreshing(true)
-                  try {
-                    await reloadNotes()
-                  } finally {
-                    setRefreshing(false)
-                  }
-                }}
-              >
-                <RefreshCw className={refreshing ? 'animate-spin' : undefined} />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Reload folders"
+                    disabled={refreshing}
+                    onClick={async () => {
+                      setRefreshing(true)
+                      try {
+                        await reloadNotes()
+                      } finally {
+                        setRefreshing(false)
+                      }
+                    }}
+                  >
+                    <RefreshCw className={refreshing ? 'animate-spin' : undefined} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Reload folders</TooltipContent>
+              </Tooltip>
               <Button
                 variant="outline"
                 size="icon"
@@ -514,7 +539,7 @@ function startEditing() {
                   <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-6 py-10">
                     <p className="text-sm text-destructive">{loadError}</p>
                     <p className="text-sm text-muted-foreground">
-                      Open Settings and point the app at a smaller folder of markdown files.
+                      Open Settings and point the app at a smaller folder of notes.
                     </p>
                   </div>
                 ) : !page ? (
@@ -532,6 +557,7 @@ function startEditing() {
                 ) : (
                   <Article
                     page={page}
+                    files={previewFiles}
                     folder={page.isIndex ? dirForIndex(tree, page) : null}
                     section={section}
                     prev={prev}
@@ -581,7 +607,7 @@ function startEditing() {
                   />
                 )}
               </div>
-              {page && page.cue.length > 0 && !editing && (
+              {page && page.cue.length > 0 && !editing && fileKind(page.file) === 'markdown' && (
                 <aside className="hidden w-72 shrink-0 overflow-auto border-l xl:block">
                   <div className="sticky top-0 p-4">
                     <CuePanel cues={page.cue} />
@@ -614,6 +640,7 @@ function startEditing() {
             }}
             kind={createState?.kind}
             parent={createState?.parent || ''}
+            rootParent={defaultLabel}
             onCreated={handleCreated}
           />
           <DeleteNoteDialog
@@ -778,6 +805,7 @@ function CuePanel({ cues }: { cues: string[] }) {
 
 function Article({
   page,
+  files,
   folder,
   section,
   prev,
@@ -798,6 +826,7 @@ function Article({
   onDelete,
 }: {
   page: NotePage
+  files: Record<string, string>
   folder: NavDirNode | null
   section: { id: string; label: string; path: string } | null
   prev: NotePage | null
@@ -813,12 +842,14 @@ function Article({
   onDraftChange: (value: string) => void
   onEdit: () => void
   onCancel: () => void
-  editorRef: RefObject<NoteEditorHandle | null>
+  editorRef: RefObject<NoteEditorHandle | CodeEditorHandle | null>
   onSave: () => void
   onDelete?: () => void
 }) {
+  const kind = fileKind(page.file)
+  const markdown = kind === 'markdown'
   return (
-    <article className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
+    <article className={`mx-auto flex w-full flex-col gap-6 px-6 py-8 ${kind === 'html' && !editing ? 'max-w-5xl' : 'max-w-3xl'}`}>
       <header className="grid gap-2">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           {section?.label || 'Notes'}
@@ -882,26 +913,40 @@ function Article({
         {readonly && !editing && (
           <p className="text-sm text-muted-foreground">This file is from GitHub and is read-only.</p>
         )}
-        {!editing && (
+        {!editing && markdown && (
           <p className="text-sm text-muted-foreground">
             Select a phrase to highlight it or attach a note.
           </p>
         )}
       </header>
 
-      {!editing && (
+      {!editing && markdown && (
         <div className="xl:hidden">
           <CuePanel cues={page.cue} />
         </div>
       )}
 
       {editing ? (
-        <NoteEditor
-          key={page.file}
-          ref={editorRef}
-          value={draft}
-          onChange={onDraftChange}
-        />
+        kind === 'markdown' ? (
+          <NoteEditor
+            key={page.file}
+            ref={editorRef}
+            value={draft}
+            onChange={onDraftChange}
+          />
+        ) : (
+          <CodeEditor
+            key={page.file}
+            ref={editorRef}
+            kind={kind}
+            value={draft}
+            onChange={onDraftChange}
+          />
+        )
+      ) : kind === 'html' ? (
+        <HtmlPreview file={page.file} html={page.raw} files={files} title={page.title} />
+      ) : kind === 'css' || kind === 'js' ? (
+        <CodeEditor key={page.file} kind={kind} value={page.raw} readOnly />
       ) : (
         <div className="typeset typeset-docs max-w-[37em]">
           <MarkdownView key={page.file} page={page} onNavigate={onGo} />

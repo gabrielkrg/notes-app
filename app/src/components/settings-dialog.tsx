@@ -43,7 +43,7 @@ const SECTIONS: {
     id: 'library',
     label: 'Library',
     icon: FolderOpen,
-    keywords: ['folder', 'notes', 'path', 'root', 'markdown', 'files', 'github', 'repo', 'token', 'sync'],
+    keywords: ['folder', 'notes', 'path', 'root', 'default', 'markdown', 'html', 'css', 'javascript', 'files', 'github', 'repo', 'token', 'sync'],
   },
 ]
 
@@ -73,6 +73,7 @@ export function SettingsDialog({
   const [section, setSection] = useState<SectionId>('general')
   const [query, setQuery] = useState('')
   const [roots, setRoots] = useState<string[]>([])
+  const [defaultRoot, setDefaultRoot] = useState('')
   const [remotes, setRemotes] = useState<GithubRemote[]>([])
   const [hasToken, setHasToken] = useState(false)
   const [tokenPersisted, setTokenPersisted] = useState(true)
@@ -97,7 +98,12 @@ export function SettingsDialog({
       return
     }
     if (window.desktop?.getNotesRoots) {
-      window.desktop.getNotesRoots().then(setRoots).catch((err: unknown) => {
+      window.desktop.getNotesRoots().then(async (next) => {
+        setRoots(next)
+        if (window.desktop?.getDefaultNotesRoot) {
+          setDefaultRoot(await window.desktop.getDefaultNotesRoot())
+        }
+      }).catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'Could not load settings')
       })
     }
@@ -127,6 +133,9 @@ export function SettingsDialog({
         ? await window.desktop.getNotesRoots()
         : saved
       setRoots(effective)
+      if (window.desktop.getDefaultNotesRoot) {
+        setDefaultRoot(await window.desktop.getDefaultNotesRoot())
+      }
       onSaved?.(effective)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save those folders')
@@ -218,6 +227,21 @@ export function SettingsDialog({
     }
   }
 
+  async function setDefault(dir: string) {
+    if (!window.desktop?.setDefaultNotesRoot) return
+    setBusy(true)
+    setError('')
+    try {
+      const saved = await window.desktop.setDefaultNotesRoot(dir)
+      setDefaultRoot(saved)
+      onSaved?.(roots)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not set the default folder')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function addFolder() {
     if (!window.desktop?.pickNotesFolder) return
     const picked = await window.desktop.pickNotesFolder()
@@ -290,6 +314,7 @@ export function SettingsDialog({
                 <LibraryPane
                   desktop={desktop}
                   roots={roots}
+                  defaultRoot={defaultRoot}
                   remotes={remotes}
                   hasToken={hasToken}
                   tokenPersisted={tokenPersisted}
@@ -299,6 +324,7 @@ export function SettingsDialog({
                   error={error || githubError}
                   onAdd={addFolder}
                   onRemove={removeFolder}
+                  onDefault={setDefault}
                   onRepoDraftChange={setRepoDraft}
                   onTokenDraftChange={setTokenDraft}
                   onAddRepo={addRepo}
@@ -405,6 +431,7 @@ function PreferenceRow({ label, children }: { label: string; children: ReactNode
 function LibraryPane({
   desktop,
   roots,
+  defaultRoot,
   remotes,
   hasToken,
   tokenPersisted,
@@ -414,6 +441,7 @@ function LibraryPane({
   error,
   onAdd,
   onRemove,
+  onDefault,
   onRepoDraftChange,
   onTokenDraftChange,
   onAddRepo,
@@ -424,6 +452,7 @@ function LibraryPane({
 }: {
   desktop: boolean
   roots: string[]
+  defaultRoot: string
   remotes: GithubRemote[]
   hasToken: boolean
   tokenPersisted: boolean
@@ -433,6 +462,7 @@ function LibraryPane({
   error: string
   onAdd: () => void
   onRemove: (dir: string) => void
+  onDefault: (dir: string) => void
   onRepoDraftChange: (value: string) => void
   onTokenDraftChange: (value: string) => void
   onAddRepo: () => void
@@ -447,8 +477,8 @@ function LibraryPane({
         <header className="grid gap-1">
           <h2 className="font-heading text-base font-medium">Notes folders</h2>
           <p className="text-sm text-muted-foreground">
-            Attach one or more folders of `.md` and `.txt` files. Each folder appears as a top-level
-            group in the sidebar, matching the folder you attached.
+            Attach one or more folders of `.md`, `.txt`, `.html`, `.css`, and `.js` files. Mark one as default for new notes
+            and folders; that folder’s name is hidden in the sidebar and its contents show at the top.
           </p>
         </header>
 
@@ -465,9 +495,23 @@ function LibraryPane({
                     key={root}
                     className="flex items-center gap-2 rounded-lg border bg-muted/20 px-2.5 py-1.5"
                   >
-                    <span className="min-w-0 flex-1 truncate font-mono text-xs" title={root}>
-                      {root}
-                    </span>
+                    <label className="flex min-w-0 flex-1 items-center gap-2">
+                      <input
+                        type="radio"
+                        name="default-notes-root"
+                        checked={defaultRoot === root}
+                        disabled={busy}
+                        onChange={() => onDefault(root)}
+                        aria-label={`Default for new notes: ${root}`}
+                        className="size-3.5 shrink-0 accent-foreground"
+                      />
+                      <span className="min-w-0 flex-1 truncate font-mono text-xs" title={root}>
+                        {root}
+                      </span>
+                      {defaultRoot === root ? (
+                        <span className="shrink-0 text-[11px] text-muted-foreground">Default</span>
+                      ) : null}
+                    </label>
                     <Button
                       type="button"
                       variant="ghost"
@@ -495,7 +539,7 @@ function LibraryPane({
         <header className="grid gap-1">
           <h2 className="font-heading text-base font-medium">GitHub repositories</h2>
           <p className="text-sm text-muted-foreground">
-            Paste a repo URL to map its `.md` and `.txt` files into the sidebar. Private repos need
+            Paste a repo URL to map its `.md`, `.txt`, `.html`, `.css`, and `.js` files into the sidebar. Private repos need
             a fine-grained token that lists this repository, with Contents: Read. The token stays on
             this machine and is only sent to api.github.com.
           </p>

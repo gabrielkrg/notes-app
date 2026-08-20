@@ -2,7 +2,7 @@ import { useEffect, useState, type MouseEvent, type ReactNode } from 'react'
 import {
   Check,
   ChevronRight,
-  FilePlus,
+  FilePen,
   FileText,
   Folder,
   FolderMinus,
@@ -27,6 +27,8 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { Progress } from '@/components/ui/progress'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Sidebar,
   SidebarContent,
@@ -113,7 +115,7 @@ function ItemMenu({
         {onCreate && (
           <>
             <ContextMenuItem onSelect={() => onCreate('note')}>
-              <FilePlus />
+              <FilePen />
               New note
             </ContextMenuItem>
             <ContextMenuItem onSelect={() => onCreate('folder')}>
@@ -150,7 +152,6 @@ export function AppSidebar({
   onGo,
   canCreate = false,
   canCreateAtRoot = canCreate,
-  protectRootFolders = false,
   roots = [],
   githubLabels = [],
   onCreate,
@@ -165,7 +166,6 @@ export function AppSidebar({
   onGo: (route: string) => void
   canCreate?: boolean
   canCreateAtRoot?: boolean
-  protectRootFolders?: boolean
   roots?: string[]
   githubLabels?: string[]
   onCreate?: (next: CreateRequest) => void
@@ -193,7 +193,6 @@ export function AppSidebar({
               onRemoveRoot={onRemoveRoot}
               roots={roots}
               githubLabels={githubLabels}
-              protectRootFolders={protectRootFolders}
               open={openId === node.id}
               onOpenChange={(next: boolean) => setOpenId(next ? node.id : null)}
             />
@@ -214,8 +213,8 @@ export function AppSidebar({
               className="hover:bg-transparent hover:text-sidebar-foreground active:bg-transparent active:text-sidebar-foreground data-[active=true]:bg-transparent"
               onClick={() => onGo('')}
             >
-              <span className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <Paperclip className="size-4" />
+              <span className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sidebar-primary text-sidebar-primary-foreground [&_svg]:size-[80%]!">
+                <Paperclip strokeWidth={2.25} />
               </span>
               <span className="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-heading font-medium">Notes</span>
@@ -224,6 +223,24 @@ export function AppSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        {canCreate ? (
+          <div className="flex items-center gap-2 px-2 pb-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:px-0">
+            <CreateRootButton
+              label="New note"
+              disabled={!canCreateAtRoot}
+              onClick={() => onCreate?.({ kind: 'note', parent: '' })}
+            >
+              <FilePen />
+            </CreateRootButton>
+            <CreateRootButton
+              label="New folder"
+              disabled={!canCreateAtRoot}
+              onClick={() => onCreate?.({ kind: 'folder', parent: '' })}
+            >
+              <FolderPlus />
+            </CreateRootButton>
+          </div>
+        ) : null}
       </SidebarHeader>
 
       <SidebarContent>
@@ -281,6 +298,46 @@ export function AppSidebar({
   )
 }
 
+function CreateRootButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string
+  disabled: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  const button = (
+    <Button
+      type="button"
+      variant="outline"
+      size="icon"
+      aria-label={label}
+      disabled={disabled}
+      className="cursor-pointer text-sidebar-foreground hover:text-sidebar-foreground"
+      onClick={(event) => {
+        event.stopPropagation()
+        onClick()
+      }}
+    >
+      {children}
+    </Button>
+  )
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {disabled ? <span className="inline-flex">{button}</span> : button}
+      </TooltipTrigger>
+      <TooltipContent>
+        {disabled ? 'Set a default notes folder in Settings' : label}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 function NavNode({
   node,
   depth,
@@ -295,7 +352,6 @@ function NavNode({
   onRemoveRoot,
   roots = [],
   githubLabels = [],
-  protectRootFolders = false,
 }: {
   node: NavNode
   depth: number
@@ -310,7 +366,6 @@ function NavNode({
   onRemoveRoot?: (dir: string) => void
   roots?: string[]
   githubLabels?: string[]
-  protectRootFolders?: boolean
 }) {
   if (node.type === 'page') {
     return (
@@ -340,7 +395,6 @@ function NavNode({
       onRemoveRoot={onRemoveRoot}
       roots={roots}
       githubLabels={githubLabels}
-      protectRootFolders={protectRootFolders}
     />
   )
 }
@@ -359,7 +413,6 @@ function FolderNode({
   onRemoveRoot,
   roots = [],
   githubLabels = [],
-  protectRootFolders = false,
 }: {
   node: NavDirNode
   depth: number
@@ -374,7 +427,6 @@ function FolderNode({
   onRemoveRoot?: (dir: string) => void
   roots?: string[]
   githubLabels?: string[]
-  protectRootFolders?: boolean
 }) {
   const active = route === node.path
   const githubLocked = isGithubVirtualPath(node.path, githubLabels)
@@ -382,8 +434,8 @@ function FolderNode({
   const Icon = open ? FolderOpen : Folder
   const children = node.children || []
   const [childOpenId, setChildOpenId] = useAccordion(children, route)
-  const canDeleteFolder = Boolean(onDelete) && !githubLocked && !(protectRootFolders && depth === 0)
   const attachedRoot = depth === 0 ? attachedRootForDir(roots, node.path) : null
+  const canDeleteFolder = Boolean(onDelete) && !githubLocked && !attachedRoot
   const canRemoveRoot = Boolean(onRemoveRoot && attachedRoot)
 
   function handleOpenChange(next: boolean) {
@@ -424,7 +476,6 @@ function FolderNode({
             onRemoveRoot={onRemoveRoot}
             roots={roots}
             githubLabels={githubLabels}
-            protectRootFolders={protectRootFolders}
             open={childOpenId === child.id}
             onOpenChange={(next: boolean) => setChildOpenId(next ? child.id : null)}
           />

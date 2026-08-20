@@ -35,7 +35,7 @@ function prefersReducedMotion() {
 
 function groupLabel(group: string, pages: Pages) {
   if (!group) return 'Root'
-  const index = pages[`${group}/index.md`] || pages[`${group}/index.txt`]
+  const index = pages[`${group}/index.md`] || pages[`${group}/index.txt`] || pages[`${group}/index.html`]
   if (index?.navLabel || index?.title) return index.navLabel || index.title
   return group.replace(/[-_]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 }

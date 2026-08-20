@@ -17,6 +17,7 @@ export {
   dirForRoute,
   filterTree,
   firstPageRoute,
+  hoistNavRoot,
   hrefForNode,
   overviewNodes,
   flattenPages,

@@ -2,7 +2,7 @@
   "name": "app",
   "productName": "Notes",
   "desktopName": "notes-desk",
-  "description": "A local markdown notes reader.",
+  "description": "A local notes reader for markdown, HTML, CSS, and JavaScript.",
   "version": "0.1.0",
   "private": true,
   "type": "module",

@@ -3,9 +3,13 @@ import { describe, it } from 'node:test'
 
 import {
   attachedRootForDir,
+  createParentPath,
+  defaultNotesRootFromSettings,
+  labelForRoot,
   labelNotesRoots,
   mergeRootPages,
   parseNotesRootEnv,
+  persistableDefaultNotesRoot,
   resolveVirtualNote,
   rootsFromSettings,
 } from './notes-roots.ts'
@@ -165,5 +169,102 @@ describe('rootsFromSettings', () => {
 
   it('returns an empty list when unset', () => {
     assert.deepEqual(rootsFromSettings({}), [])
+  })
+})
+
+describe('defaultNotesRootFromSettings', () => {
+  const notes = '/home/me/notes'
+  const work = '/home/me/work'
+
+  it('returns the saved default when it is still attached', () => {
+    assert.equal(
+      defaultNotesRootFromSettings({ defaultNotesRoot: work }, [notes, work]),
+      work,
+    )
+  })
+
+  it('treats a trailing slash as the same folder', () => {
+    assert.equal(
+      defaultNotesRootFromSettings({ defaultNotesRoot: `${notes}/` }, [notes]),
+      notes,
+    )
+  })
+
+  it('falls back to the only attached folder when the default is unset', () => {
+    assert.equal(defaultNotesRootFromSettings({}, [notes]), notes)
+  })
+
+  it('clears a default that is no longer attached when several folders remain', () => {
+    assert.equal(
+      defaultNotesRootFromSettings({ defaultNotesRoot: '/gone' }, [notes, work]),
+      '',
+    )
+  })
+
+  it('falls back to the remaining folder after the default is removed', () => {
+    assert.equal(
+      defaultNotesRootFromSettings({ defaultNotesRoot: work }, [notes]),
+      notes,
+    )
+  })
+
+  it('returns empty when nothing is attached', () => {
+    assert.equal(defaultNotesRootFromSettings({ defaultNotesRoot: notes }, []), '')
+  })
+})
+
+describe('persistableDefaultNotesRoot', () => {
+  const notes = '/home/me/notes'
+  const work = '/home/me/work'
+  const extra = '/home/me/extra'
+
+  it('saves the implicit default when a second folder is attached', () => {
+    assert.equal(
+      persistableDefaultNotesRoot({ notesRoots: [notes] }, [notes, work]),
+      notes,
+    )
+  })
+
+  it('keeps an explicit default while another folder is added', () => {
+    assert.equal(
+      persistableDefaultNotesRoot({ notesRoots: [notes, work], defaultNotesRoot: work }, [notes, work, extra]),
+      work,
+    )
+  })
+
+  it('clears a removed default when several folders remain', () => {
+    assert.equal(
+      persistableDefaultNotesRoot(
+        { notesRoots: [notes, work, extra], defaultNotesRoot: extra },
+        [notes, work],
+      ),
+      '',
+    )
+  })
+})
+
+describe('labelForRoot', () => {
+  it('returns the sidebar label for an attached folder', () => {
+    assert.equal(labelForRoot(['/home/me/notes', '/home/me/work'], '/home/me/work'), 'work')
+  })
+
+  it('returns empty when the folder is not attached', () => {
+    assert.equal(labelForRoot(['/home/me/notes'], '/home/me/work'), '')
+  })
+})
+
+describe('createParentPath', () => {
+  const roots = ['/home/me/notes', '/home/me/work']
+
+  it('keeps an explicit parent folder', () => {
+    assert.equal(createParentPath('notes/php', roots, '/home/me/notes'), 'notes/php')
+  })
+
+  it('uses the default vault label when parent is empty', () => {
+    assert.equal(createParentPath('', roots, '/home/me/work'), 'work')
+  })
+
+  it('returns empty when there is no default and parent is empty', () => {
+    assert.equal(createParentPath('', roots, ''), '')
   })
 })

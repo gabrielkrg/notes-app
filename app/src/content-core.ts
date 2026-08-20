@@ -1,3 +1,5 @@
+import { fileKind } from './lib/note-name.ts'
+
 export type FrontmatterValue = string | number | string[]
 export type FrontmatterData = Record<string, FrontmatterValue>
 
@@ -141,6 +143,29 @@ function titleFrom(body: string, fallback: string): string {
   return match ? match[1].trim() : fallback
 }
 
+function titleFromFile(file: string): string {
+  const base = String(file).split('/').pop() || file
+  return labelFromSlug(base.replace(/\.[^.]+$/, '')) || file
+}
+
+function stripTags(value: string): string {
+  return value.replace(/<[^>]+>/g, '').trim()
+}
+
+function titleFromHtml(raw: string, fallback: string): string {
+  const title = raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
+  if (title) {
+    const text = stripTags(title[1])
+    if (text) return text
+  }
+  const heading = raw.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)
+  if (heading) {
+    const text = stripTags(heading[1])
+    if (text) return text
+  }
+  return fallback
+}
+
 function firstParagraph(body: string): string {
   for (const part of body.split(/\n\s*\n/)) {
     const trimmed = part.trim()
@@ -151,16 +176,16 @@ function firstParagraph(body: string): string {
 }
 
 export function routeFor(file: string): string {
-  return String(file).replace(/\.(md|txt)$/i, '').replace(/\/index$/i, '')
+  return String(file).replace(/\.(md|txt|html|css|js)$/i, '').replace(/\/index$/i, '')
 }
 
 function isIndexFile(file: string): boolean {
-  return /(^|\/)index\.(md|txt)$/i.test(String(file))
+  return /(^|\/)index\.(md|txt|html)$/i.test(String(file))
 }
 
 function indexDirPath(file: string): string {
-  if (/^index\.(md|txt)$/i.test(file)) return ''
-  return file.replace(/\/index\.(md|txt)$/i, '')
+  if (/^index\.(md|txt|html)$/i.test(file)) return ''
+  return file.replace(/\/index\.(md|txt|html)$/i, '')
 }
 
 function labelFromSlug(slug: string): string {
@@ -191,14 +216,22 @@ function buildPages(rawPages: Record<string, string>, githubFiles: Set<string>):
   for (const [key, raw] of Object.entries(rawPages)) {
     const file = fileKey(key)
     const source = String(raw)
-    const { data, body } = parseFrontmatter(source)
+    const kind = fileKind(file)
+    const parsed = parseFrontmatter(source)
+    const data = kind === 'markdown' ? parsed.data : {}
+    const body = kind === 'markdown' ? parsed.body : source
     const fromGithub = githubFiles.has(file)
+    const fallback = kind === 'markdown' ? file : titleFromFile(file)
+    const title =
+      kind === 'html'
+        ? titleFromHtml(source, fallback)
+        : fmString(data, 'title') || titleFrom(body, fallback)
     built[file] = {
       file,
       raw: source,
       route: routeFor(file),
-      title: fmString(data, 'title') || titleFrom(body, file),
-      navLabel: fmString(data, 'nav') || fmString(data, 'title') || titleFrom(body, file),
+      title,
+      navLabel: fmString(data, 'nav') || fmString(data, 'title') || title,
       isIndex: isIndexFile(file),
       order: Number.isFinite(data.order) ? Number(data.order) : 99,
       focus: fmString(data, 'focus'),
@@ -280,6 +313,16 @@ function buildNavTree(
   return root.children
 }
 
+export function hoistNavRoot(tree: NavNode[] = [], label = ''): NavNode[] {
+  const marker = String(label || '').trim()
+  if (!marker) return tree
+  const idx = tree.findIndex((node) => node.type === 'dir' && node.path === marker)
+  if (idx === -1) return tree
+  const node = tree[idx]
+  if (node.type !== 'dir') return tree
+  return [...tree.slice(0, idx), ...node.children, ...tree.slice(idx + 1)]
+}
+
 export type BuildContentOptions = {
   githubFiles?: Iterable<string>
   githubNames?: Record<string, string>
@@ -304,11 +347,20 @@ export function buildContent(rawPages: Record<string, string> = {}, options: Bui
   }
 }
 
+const ROUTE_EXT_ORDER = ['md', 'txt', 'html', 'css', 'js'] as const
+
 export function pageByRoute(pages: Pages, route: string): NotePage | null {
   if (!route) return null
-  const direct = Object.values(pages).find((page) => page.route === route)
-  if (direct) return direct
-  return pages[`${route}/index.md`] ?? pages[`${route}/index.txt`] ?? null
+  const matches = Object.values(pages).filter((page) => page.route === route)
+  if (matches.length === 1) return matches[0]
+  if (matches.length > 1) {
+    for (const ext of ROUTE_EXT_ORDER) {
+      const hit = matches.find((page) => page.file.toLowerCase().endsWith(`.${ext}`))
+      if (hit) return hit
+    }
+    return matches[0]
+  }
+  return pages[`${route}/index.md`] ?? pages[`${route}/index.txt`] ?? pages[`${route}/index.html`] ?? null
 }
 
 export function flattenPages(nodes: NavNode[] = []): NotePage[] {
@@ -490,6 +542,7 @@ export function buildNoteGraph(pages: Pages = {}): NoteGraph {
   const seen = new Set<string>()
   const edges: GraphEdge[] = []
   for (const page of list) {
+    if (fileKind(page.file) !== 'markdown') continue
     for (const href of extractMdHrefs(page.body)) {
       const target = resolveMdHref(page.file, href)
       if (target.kind !== 'internal') continue

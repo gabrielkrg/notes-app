@@ -20,6 +20,7 @@ export type GithubRemoteSettings = {
 export type AppSettings = {
   notesRoot?: string
   notesRoots?: string[]
+  defaultNotesRoot?: string
   githubRemotes?: GithubRemoteSettings[]
 }
 
@@ -103,6 +104,31 @@ export function rootsFromSettings(settings: AppSettings = {}): string[] {
   }
   if (settings.notesRoot) return [String(settings.notesRoot)]
   return []
+}
+
+export function defaultNotesRootFromSettings(settings: AppSettings = {}, roots: string[] = []): string {
+  const saved = normalizeRoot(settings.defaultNotesRoot || '')
+  const found = roots.find((dir) => normalizeRoot(dir) === saved)
+  if (found) return found
+  const attached = roots.map((dir) => String(dir || '').trim()).filter(Boolean)
+  if (attached.length === 1) return attached[0]
+  return ''
+}
+
+export function persistableDefaultNotesRoot(settings: AppSettings = {}, nextRoots: string[] = []): string {
+  const current = defaultNotesRootFromSettings(settings, rootsFromSettings(settings))
+  return defaultNotesRootFromSettings({ ...settings, defaultNotesRoot: current }, nextRoots)
+}
+
+export function labelForRoot(roots: string[] = [], root = ''): string {
+  const normalized = normalizeRoot(root)
+  return labelNotesRoots(roots).find((item) => item.root === normalized)?.label || ''
+}
+
+export function createParentPath(parent = '', roots: string[] = [], defaultRoot = ''): string {
+  const trimmed = String(parent || '').trim().replace(/^\/+|\/+$/g, '')
+  if (trimmed) return trimmed
+  return labelForRoot(roots, defaultRoot)
 }
 
 export function resolveVirtualNote(virtualPath: string, labeledRoots: LabeledRoot[] = []): LabeledRoot & { relative: string } {

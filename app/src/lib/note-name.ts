@@ -11,23 +11,47 @@ export function slugifyName(name: string): string {
 }
 
 export function isNoteFile(file: string): boolean {
-  return /\.(md|txt)$/i.test(String(file))
+  return /\.(md|txt|html|css|js)$/i.test(String(file))
 }
 
 export type NoteKind = 'note' | 'folder'
+export type NoteFileType = 'markdown' | 'html' | 'css' | 'js'
 
 export type NoteFileFromNameOptions = {
   parent?: string
   kind?: NoteKind
+  type?: NoteFileType
 }
 
-export function noteFileFromName(name: string, { parent = '', kind = 'note' }: NoteFileFromNameOptions = {}): string {
+export function fileKind(file: string): NoteFileType {
+  const name = String(file || '')
+  if (/\.html$/i.test(name)) return 'html'
+  if (/\.css$/i.test(name)) return 'css'
+  if (/\.js$/i.test(name)) return 'js'
+  return 'markdown'
+}
+
+export function parseNoteFileType(value: unknown): NoteFileType {
+  if (value == null || value === '') return 'markdown'
+  if (value === 'markdown' || value === 'html' || value === 'css' || value === 'js') return value
+  throw new Error('Unknown note type')
+}
+
+function extensionForType(type: NoteFileType): string {
+  if (type === 'html') return 'html'
+  if (type === 'css') return 'css'
+  if (type === 'js') return 'js'
+  return 'md'
+}
+
+export function noteFileFromName(name: string, { parent = '', kind = 'note', type = 'markdown' }: NoteFileFromNameOptions = {}): string {
   const slug = slugifyName(name)
   const dir = String(parent || '').replace(/^\/+|\/+$/g, '')
   if (kind === 'folder') {
     return dir ? `${dir}/${slug}/index.md` : `${slug}/index.md`
   }
-  return dir ? `${dir}/${slug}.md` : `${slug}.md`
+  const ext = extensionForType(type)
+  return dir ? `${dir}/${slug}.${ext}` : `${slug}.${ext}`
 }
 
 function yamlString(value: string): string {
@@ -46,4 +70,38 @@ nav: ${yamlString(heading)}
 # ${heading}
 
 `
+}
+
+export function starterHtml({ title }: { title: string }): string {
+  const heading = String(title || '').trim() || 'Untitled'
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>${heading}</title>
+  </head>
+  <body>
+    <h1>${heading}</h1>
+  </body>
+</html>
+`
+}
+
+export function starterCss({ title }: { title: string }): string {
+  const heading = String(title || '').trim() || 'Untitled'
+  return `/* ${heading} */
+`
+}
+
+export function starterJs({ title }: { title: string }): string {
+  const heading = String(title || '').trim() || 'Untitled'
+  return `// ${heading}
+`
+}
+
+export function starterForType(type: NoteFileType, title: string): string {
+  if (type === 'html') return starterHtml({ title })
+  if (type === 'css') return starterCss({ title })
+  if (type === 'js') return starterJs({ title })
+  return starterMarkdown({ title })
 }

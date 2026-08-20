@@ -41,6 +41,16 @@ describe('deleteNoteAt', () => {
     assert.equal(fs.existsSync(path.join(dir, file)), false)
   })
 
+  it('removes an html note', () => {
+    const dir = makeRoot()
+    root = dir
+    const file = 'php/widget.html'
+    fs.mkdirSync(path.join(dir, 'php'))
+    fs.writeFileSync(path.join(dir, file), '<h1>Widget</h1>\n')
+    deleteNoteAt(dir, file)
+    assert.equal(fs.existsSync(path.join(dir, file)), false)
+  })
+
   it('rejects paths that escape the notes root', () => {
     const dir = makeRoot()
     root = dir

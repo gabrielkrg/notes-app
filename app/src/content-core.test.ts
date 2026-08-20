@@ -7,6 +7,7 @@ import {
   dirForIndex,
   dirForRoute,
   groupLinkCounts,
+  hoistNavRoot,
   hrefForNode,
   isGraphRoute,
   overviewNodes,
@@ -58,6 +59,65 @@ describe('buildContent', () => {
     assert.equal(pages['scratch/index.txt'].route, 'scratch')
     assert.equal(navTree[0].label, 'Scratch')
     assert.equal(pageByRoute(pages, 'scratch')!.file, 'scratch/index.txt')
+  })
+
+  it('treats html, css, and js as notes', () => {
+    const { pages } = buildContent({
+      'php/widget.html': '<!doctype html><title>Widget</title><h1>Widget</h1>',
+      'php/theme.css': 'body { color: red; }',
+      'php/main.js': 'console.log(1)',
+    })
+    assert.equal(pages['php/widget.html'].route, 'php/widget')
+    assert.equal(pages['php/widget.html'].title, 'Widget')
+    assert.equal(pages['php/theme.css'].route, 'php/theme')
+    assert.equal(pages['php/theme.css'].title, 'Theme')
+    assert.equal(pages['php/main.js'].title, 'Main')
+    assert.equal(pageByRoute(pages, 'php/widget')!.file, 'php/widget.html')
+  })
+
+  it('uses index.html as a folder landing page', () => {
+    const { pages, navTree } = buildContent({
+      'demo/index.html': '<title>Demo</title>',
+    })
+    assert.equal(pages['demo/index.html'].isIndex, true)
+    assert.equal(pages['demo/index.html'].route, 'demo')
+    assert.equal(navTree[0].label, 'Demo')
+    assert.equal(pageByRoute(pages, 'demo')!.file, 'demo/index.html')
+  })
+
+  it('prefers markdown when two files share a route', () => {
+    const { pages } = buildContent({
+      'php/widget.html': '<title>HTML Widget</title>',
+      'php/widget.md': '---\ntitle: MD Widget\n---\n',
+    })
+    assert.equal(pageByRoute(pages, 'php/widget')!.file, 'php/widget.md')
+    assert.equal(pages['php/widget.html'].title, 'HTML Widget')
+  })
+
+  it('prefers index.md over index.html as the folder landing', () => {
+    const { pages } = buildContent({
+      'demo/index.html': '<title>HTML Demo</title>',
+      'demo/index.md': '---\ntitle: MD Demo\n---\n',
+    })
+    assert.equal(pageByRoute(pages, 'demo')!.file, 'demo/index.md')
+  })
+
+  it('takes html title from the first h1 when title is missing', () => {
+    const { pages } = buildContent({
+      'php/widget.html': '<h1>Heading Only</h1>',
+    })
+    assert.equal(pages['php/widget.html'].title, 'Heading Only')
+  })
+
+  it('does not parse yaml frontmatter in css or js', () => {
+    const { pages } = buildContent({
+      'php/theme.css': '---\ntitle: Stolen\n---\n\nbody { color: red; }',
+      'php/main.js': '---\ntitle: Stolen\n---\n\nconsole.log(1)\n',
+    })
+    assert.equal(pages['php/theme.css'].title, 'Theme')
+    assert.equal(pages['php/theme.css'].body, '---\ntitle: Stolen\n---\n\nbody { color: red; }')
+    assert.equal(pages['php/main.js'].title, 'Main')
+    assert.equal(pages['php/main.js'].body.startsWith('---'), true)
   })
 
   it('marks GitHub-sourced files as read-only', () => {
@@ -114,12 +174,59 @@ describe('buildContent', () => {
   })
 })
 
+describe('hoistNavRoot', () => {
+  it('splices the default vault children to the top of the tree', () => {
+    const { navTree } = buildContent({
+      'notes/index.md': '---\ntitle: Notes\nnav: Notes\n---\n',
+      'notes/attention.md': '---\ntitle: Attention\n---\n',
+      'notes/folder/index.md': '---\ntitle: Folder\n---\n',
+      'work/sql.md': '---\ntitle: SQL\n---\n',
+    })
+    const hoisted = hoistNavRoot(navTree, 'notes')
+    assert.deepEqual(
+      hoisted.map((node) => node.label).sort(),
+      ['Attention', 'Folder', 'Work'],
+    )
+    assert.equal(
+      hoisted.some((node) => node.type === 'dir' && node.path === 'notes'),
+      false,
+    )
+  })
+
+  it('does not keep the vault index as a menu item', () => {
+    const { navTree } = buildContent({
+      'notes/index.md': '---\ntitle: Notes Vault\nnav: Notes Vault\n---\n',
+      'notes/attention.md': '---\ntitle: Attention\n---\n',
+    })
+    const hoisted = hoistNavRoot(navTree, 'notes')
+    assert.equal(
+      hoisted.some((node) => node.label === 'Notes Vault' || node.path === 'notes'),
+      false,
+    )
+    assert.equal(hoisted[0].label, 'Attention')
+  })
+
+  it('leaves the tree unchanged when the label is empty', () => {
+    const { navTree } = buildContent({
+      'notes/attention.md': '---\ntitle: Attention\n---\n',
+    })
+    assert.equal(hoistNavRoot(navTree, ''), navTree)
+  })
+})
+
 describe('routeFor', () => {
   it('strips markdown and text extensions', () => {
     assert.equal(routeFor('php/arrays.md'), 'php/arrays')
     assert.equal(routeFor('php/test.txt'), 'php/test')
     assert.equal(routeFor('php/index.md'), 'php')
     assert.equal(routeFor('php/index.txt'), 'php')
+  })
+
+  it('strips html, css, and js extensions', () => {
+    assert.equal(routeFor('php/widget.html'), 'php/widget')
+    assert.equal(routeFor('php/theme.css'), 'php/theme')
+    assert.equal(routeFor('php/main.js'), 'php/main')
+    assert.equal(routeFor('php/index.html'), 'php')
   })
 })
 
@@ -182,6 +289,15 @@ describe('buildNoteGraph', () => {
     })
     const graph = buildNoteGraph(pages)
     assert.deepEqual(graph.edges, [{ source: 'php/index.md', target: 'php/arrays.md' }])
+  })
+
+  it('does not parse markdown links inside html, css, or js', () => {
+    const { pages } = buildContent({
+      'php/widget.html': '<p>See [Arrays](arrays.md)</p>',
+      'php/arrays.md': '# Arrays\n',
+    })
+    const graph = buildNoteGraph(pages)
+    assert.equal(graph.edges.length, 0)
   })
 
   it('skips external urls, images, missing files, and duplicate links', () => {
