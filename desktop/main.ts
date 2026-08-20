@@ -5,15 +5,22 @@ import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, ipcMain, Menu, shell, type IpcMainInvokeEvent } from 'electron'
 
 import {
+  clearGithubToken,
   createFolder,
   createNote,
   deleteFolder,
   deleteNote,
+  getGithubRemotes,
+  getGithubSyncErrors,
   getNotesRoot,
   getNotesRoots,
+  hasGithubToken,
+  isGithubTokenPersisted,
   listNotes,
   pickNotesFolder,
   resolveNoteFile,
+  setGithubRemotes,
+  setGithubToken,
   setNotesRoot,
   setNotesRoots,
   writeNote,
@@ -127,6 +134,13 @@ if (!gotTheLock) {
     ipcMain.handle('set-notes-root', wrap((dir: string) => setNotesRoot(dir)))
     ipcMain.handle('set-notes-roots', wrap((dirs: string[]) => setNotesRoots(dirs || [])))
     ipcMain.handle('pick-notes-folder', wrap(() => pickNotesFolder()))
+    ipcMain.handle('get-github-remotes', wrap(() => getGithubRemotes()))
+    ipcMain.handle('set-github-remotes', wrap((remotes: Parameters<typeof setGithubRemotes>[0]) => setGithubRemotes(remotes || [])))
+    ipcMain.handle('has-github-token', wrap(() => hasGithubToken()))
+    ipcMain.handle('github-token-persisted', wrap(() => isGithubTokenPersisted()))
+    ipcMain.handle('set-github-token', wrap((token: string) => setGithubToken(String(token || ''))))
+    ipcMain.handle('clear-github-token', wrap(() => clearGithubToken()))
+    ipcMain.handle('get-github-sync-errors', wrap(() => getGithubSyncErrors()))
     mainWindow = createWindow()
 
     app.on('activate', () => {

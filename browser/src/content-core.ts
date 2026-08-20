@@ -13,6 +13,8 @@ export type NotePage = {
   cue: string[]
   body: string
   blurb: string
+  source?: 'github'
+  readonly?: boolean
 }
 
 export type Pages = Record<string, NotePage>
@@ -44,6 +46,8 @@ export type Content = {
   navTree: NavNode[]
   topicPages: NotePage[]
   topicCount: number
+  githubLabels: string[]
+  githubNames: Record<string, string>
 }
 
 export type MdHref =
@@ -170,12 +174,25 @@ function fmString(data: FrontmatterData, key: string): string {
   return typeof value === 'string' ? value : ''
 }
 
-function buildPages(rawPages: Record<string, string>): Pages {
+function githubLabelsFromFiles(files: Iterable<string>): string[] {
+  const labels = new Set<string>()
+  for (const file of files) {
+    const label = String(file || '')
+      .replace(/\\/g, '/')
+      .replace(/^\/+/, '')
+      .split('/')[0]
+    if (label) labels.add(label)
+  }
+  return [...labels]
+}
+
+function buildPages(rawPages: Record<string, string>, githubFiles: Set<string>): Pages {
   const built: Pages = {}
   for (const [key, raw] of Object.entries(rawPages)) {
     const file = fileKey(key)
     const source = String(raw)
     const { data, body } = parseFrontmatter(source)
+    const fromGithub = githubFiles.has(file)
     built[file] = {
       file,
       raw: source,
@@ -188,6 +205,8 @@ function buildPages(rawPages: Record<string, string>): Pages {
       cue: Array.isArray(data.cue) ? data.cue.filter(Boolean) : [],
       body,
       blurb: fmString(data, 'focus') || firstParagraph(body),
+      readonly: fromGithub,
+      ...(fromGithub ? { source: 'github' as const } : {}),
     }
   }
   return built
@@ -200,7 +219,7 @@ function sortNodes(nodes: NavNode[]): void {
   }
 }
 
-function buildNavTree(pages: Pages): NavNode[] {
+function buildNavTree(pages: Pages, githubNames: Record<string, string> = {}): NavNode[] {
   const root: NavDirNode = { type: 'dir', id: '', path: '', label: 'Notes', order: 0, children: [] }
   const dirs = new Map<string, NavDirNode>([['', root]])
 
@@ -214,7 +233,7 @@ function buildNavTree(pages: Pages): NavNode[] {
       type: 'dir',
       id: dirPath,
       path: dirPath,
-      label: labelFromSlug(slug),
+      label: githubNames[dirPath] || labelFromSlug(slug),
       order: 99,
       focus: '',
       children: [],
@@ -229,7 +248,7 @@ function buildNavTree(pages: Pages): NavNode[] {
       const dirPath = indexDirPath(page.file)
       const dir = ensureDir(dirPath)
       dir.page = page
-      dir.label = page.navLabel || page.title
+      if (!githubNames[dirPath]) dir.label = page.navLabel || page.title
       dir.order = page.order
       dir.focus = page.focus || page.blurb
       continue
@@ -253,15 +272,26 @@ function buildNavTree(pages: Pages): NavNode[] {
   return root.children
 }
 
-export function buildContent(rawPages: Record<string, string> = {}): Content {
-  const pages = buildPages(rawPages)
-  const navTree = buildNavTree(pages)
+export type BuildContentOptions = {
+  githubFiles?: Iterable<string>
+  githubNames?: Record<string, string>
+}
+
+export function buildContent(rawPages: Record<string, string> = {}, options: BuildContentOptions = {}): Content {
+  const githubFiles = new Set(
+    [...(options.githubFiles || [])].map((file) => fileKey(String(file))),
+  )
+  const githubNames = { ...(options.githubNames || {}) }
+  const pages = buildPages(rawPages, githubFiles)
+  const navTree = buildNavTree(pages, githubNames)
   const topicPages = Object.values(pages).filter((page) => !page.isIndex)
   return {
     pages,
     navTree,
     topicPages,
     topicCount: topicPages.length,
+    githubLabels: githubLabelsFromFiles(githubFiles),
+    githubNames,
   }
 }
 

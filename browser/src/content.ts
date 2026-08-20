@@ -1,6 +1,7 @@
 import rawPages from 'virtual:notes-pages'
 import { buildContent } from './content-core.ts'
 
+export const bundledRawPages = rawPages
 export const bundledContent = buildContent(rawPages)
 export const pages = bundledContent.pages
 export const navTree = bundledContent.navTree

@@ -41,7 +41,9 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar'
 import { ShortcutHint } from '@/components/search-command'
+import { GithubMark } from '@/components/github-mark.tsx'
 import { GRAPH_ROUTE, hrefForNode, isGraphRoute, type NavDirNode, type NavNode, type NavPageNode } from '@/content.ts'
+import { isGithubVirtualPath } from '@/lib/github-notes.ts'
 import { attachedRootForDir } from '@/lib/notes-roots.ts'
 import type { DeleteTarget } from '@/lib/note-delete.ts'
 import type { NoteKind } from '@/lib/note-name.ts'
@@ -152,6 +154,7 @@ export function AppSidebar({
   canCreateAtRoot = canCreate,
   protectRootFolders = false,
   roots = [],
+  githubLabels = [],
   onCreate,
   onDelete,
   onRemoveRoot,
@@ -166,6 +169,7 @@ export function AppSidebar({
   canCreateAtRoot?: boolean
   protectRootFolders?: boolean
   roots?: string[]
+  githubLabels?: string[]
   onCreate?: (next: CreateRequest) => void
   onDelete?: (target: DeleteTarget) => void
   onRemoveRoot?: (dir: string) => void
@@ -190,6 +194,7 @@ export function AppSidebar({
               onDelete={onDelete}
               onRemoveRoot={onRemoveRoot}
               roots={roots}
+              githubLabels={githubLabels}
               protectRootFolders={protectRootFolders}
               open={openId === node.id}
               onOpenChange={(next: boolean) => setOpenId(next ? node.id : null)}
@@ -291,6 +296,7 @@ function NavNode({
   onDelete,
   onRemoveRoot,
   roots = [],
+  githubLabels = [],
   protectRootFolders = false,
 }: {
   node: NavNode
@@ -305,6 +311,7 @@ function NavNode({
   onDelete?: (target: DeleteTarget) => void
   onRemoveRoot?: (dir: string) => void
   roots?: string[]
+  githubLabels?: string[]
   protectRootFolders?: boolean
 }) {
   if (node.type === 'page') {
@@ -334,6 +341,7 @@ function NavNode({
       onDelete={onDelete}
       onRemoveRoot={onRemoveRoot}
       roots={roots}
+      githubLabels={githubLabels}
       protectRootFolders={protectRootFolders}
     />
   )
@@ -352,6 +360,7 @@ function FolderNode({
   onDelete,
   onRemoveRoot,
   roots = [],
+  githubLabels = [],
   protectRootFolders = false,
 }: {
   node: NavDirNode
@@ -366,13 +375,16 @@ function FolderNode({
   onDelete?: (target: DeleteTarget) => void
   onRemoveRoot?: (dir: string) => void
   roots?: string[]
+  githubLabels?: string[]
   protectRootFolders?: boolean
 }) {
   const active = route === node.path
+  const githubLocked = isGithubVirtualPath(node.path, githubLabels)
+  const isGithubRoot = depth === 0 && githubLabels.includes(node.path)
   const Icon = open ? FolderOpen : Folder
   const children = node.children || []
   const [childOpenId, setChildOpenId] = useAccordion(children, route)
-  const canDeleteFolder = Boolean(onDelete) && !(protectRootFolders && depth === 0)
+  const canDeleteFolder = Boolean(onDelete) && !githubLocked && !(protectRootFolders && depth === 0)
   const attachedRoot = depth === 0 ? attachedRootForDir(roots, node.path) : null
   const canRemoveRoot = Boolean(onRemoveRoot && attachedRoot)
 
@@ -395,6 +407,9 @@ function FolderNode({
       )}
       <Icon />
       <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">{node.label}</span>
+      {isGithubRoot && (
+        <GithubMark className="ml-auto size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+      )}
     </>
   )
 
@@ -414,6 +429,7 @@ function FolderNode({
             onDelete={onDelete}
             onRemoveRoot={onRemoveRoot}
             roots={roots}
+            githubLabels={githubLabels}
             protectRootFolders={protectRootFolders}
             open={childOpenId === child.id}
             onOpenChange={(next: boolean) => setChildOpenId(next ? child.id : null)}
@@ -427,7 +443,9 @@ function FolderNode({
     <Collapsible asChild open={open} onOpenChange={handleOpenChange}>
       <SidebarMenuItem className="group/collapsible">
         <ItemMenu
-          onCreate={canCreate ? (kind: NoteKind) => onCreate?.({ kind, parent: node.path }) : undefined}
+          onCreate={
+            canCreate && !githubLocked ? (kind: NoteKind) => onCreate?.({ kind, parent: node.path }) : undefined
+          }
           onRemove={attachedRoot && onRemoveRoot ? () => onRemoveRoot(attachedRoot) : undefined}
           onDelete={
             canDeleteFolder && onDelete
@@ -493,7 +511,7 @@ function PageLink({
     <SidebarMenuItem>
       <ItemMenu
         onDelete={
-          onDelete
+          onDelete && !page.readonly
             ? () => onDelete({ kind: 'note', name: node.label, file: page.file })
             : undefined
         }

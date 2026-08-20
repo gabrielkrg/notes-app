@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { FolderOpen, Monitor, Moon, Search, SlidersHorizontal, Sun, Trash2 } from 'lucide-react'
+import { Folder, FolderOpen, Monitor, Moon, RefreshCw, Search, SlidersHorizontal, Sun, Trash2 } from 'lucide-react'
 
+import { GithubMark } from '@/components/github-mark.tsx'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -10,6 +11,15 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { isDesktop } from '@/lib/desktop'
+import {
+  addGithubRemote,
+  clearLibraryGithubToken,
+  loadGithubLibrary,
+  removeGithubRemote,
+  saveLibraryGithubToken,
+  type GithubLibraryState,
+} from '@/lib/github-client.ts'
+import type { GithubRemote } from '@/lib/github-notes.ts'
 import { HIGHLIGHT_COLORS } from '@/lib/highlight.ts'
 import { useHighlight } from '@/lib/highlight-provider.tsx'
 import { useTheme, type Theme } from '@/lib/theme'
@@ -33,7 +43,7 @@ const SECTIONS: {
     id: 'library',
     label: 'Library',
     icon: FolderOpen,
-    keywords: ['folder', 'notes', 'path', 'root', 'markdown', 'files'],
+    keywords: ['folder', 'notes', 'path', 'root', 'markdown', 'files', 'github', 'repo', 'token', 'sync'],
   },
 ]
 
@@ -52,15 +62,22 @@ export function SettingsDialog({
   open,
   onOpenChange,
   onSaved,
+  githubError = '',
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSaved?: (roots: string[]) => void | Promise<void>
+  onSaved?: (roots?: string[]) => void | Promise<void>
+  githubError?: string
 }) {
   const desktop = isDesktop()
   const [section, setSection] = useState<SectionId>('general')
   const [query, setQuery] = useState('')
   const [roots, setRoots] = useState<string[]>([])
+  const [remotes, setRemotes] = useState<GithubRemote[]>([])
+  const [hasToken, setHasToken] = useState(false)
+  const [tokenPersisted, setTokenPersisted] = useState(true)
+  const [tokenDraft, setTokenDraft] = useState('')
+  const [repoDraft, setRepoDraft] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -75,12 +92,24 @@ export function SettingsDialog({
       setQuery('')
       setSection('general')
       setError('')
+      setTokenDraft('')
+      setRepoDraft('')
       return
     }
-    if (!window.desktop?.getNotesRoots) return
-    window.desktop.getNotesRoots().then(setRoots).catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : 'Could not load settings')
-    })
+    if (window.desktop?.getNotesRoots) {
+      window.desktop.getNotesRoots().then(setRoots).catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Could not load settings')
+      })
+    }
+    loadGithubLibrary()
+      .then((state: GithubLibraryState) => {
+        setRemotes(state.remotes)
+        setHasToken(state.hasToken)
+        setTokenPersisted(state.tokenPersisted)
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Could not load GitHub settings')
+      })
   }, [open])
 
   useEffect(() => {
@@ -106,6 +135,89 @@ export function SettingsDialog({
     }
   }
 
+  async function addRepo() {
+    const url = repoDraft.trim()
+    if (!url) return
+    setBusy(true)
+    setError('')
+    try {
+      await addGithubRemote(url)
+      const state = await loadGithubLibrary()
+      setRemotes(state.remotes)
+      setRepoDraft('')
+      await onSaved?.(roots)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not add that GitHub repository')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeRepo(id: string) {
+    setBusy(true)
+    setError('')
+    try {
+      const next = await removeGithubRemote(id)
+      setRemotes(next)
+      await onSaved?.(roots)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not remove that repository')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveToken() {
+    setBusy(true)
+    setError('')
+    try {
+      const result = await saveLibraryGithubToken(tokenDraft)
+      setHasToken(Boolean(tokenDraft.trim()) || result.persisted)
+      setTokenPersisted(result.persisted)
+      setTokenDraft('')
+      const state = await loadGithubLibrary()
+      setHasToken(state.hasToken)
+      setTokenPersisted(state.tokenPersisted)
+      await onSaved?.(roots)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save that token')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function clearToken() {
+    setBusy(true)
+    setError('')
+    try {
+      await clearLibraryGithubToken()
+      setHasToken(false)
+      setTokenPersisted(true)
+      setTokenDraft('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not clear the token')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function syncRepos() {
+    setBusy(true)
+    setError('')
+    try {
+      await onSaved?.(roots)
+      const state = await loadGithubLibrary()
+      setRemotes(state.remotes)
+      setHasToken(state.hasToken)
+      setTokenPersisted(state.tokenPersisted)
+      if (state.errors[0]) setError(state.errors.map((item) => item.message).join(' '))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not sync GitHub repositories')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function addFolder() {
     if (!window.desktop?.pickNotesFolder) return
     const picked = await window.desktop.pickNotesFolder()
@@ -125,7 +237,7 @@ export function SettingsDialog({
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
-          Appearance, highlight color, and notes folders.
+          Appearance, highlight color, notes folders, and GitHub repositories.
         </DialogDescription>
         <div className="flex h-full min-h-0 flex-1 max-sm:flex-col">
           <aside className="flex w-full shrink-0 flex-col gap-3 border-b bg-muted/40 p-3 sm:w-52 sm:border-r sm:border-b-0">
@@ -178,10 +290,22 @@ export function SettingsDialog({
                 <LibraryPane
                   desktop={desktop}
                   roots={roots}
+                  remotes={remotes}
+                  hasToken={hasToken}
+                  tokenPersisted={tokenPersisted}
+                  tokenDraft={tokenDraft}
+                  repoDraft={repoDraft}
                   busy={busy}
-                  error={error}
+                  error={error || githubError}
                   onAdd={addFolder}
                   onRemove={removeFolder}
+                  onRepoDraftChange={setRepoDraft}
+                  onTokenDraftChange={setTokenDraft}
+                  onAddRepo={addRepo}
+                  onRemoveRepo={removeRepo}
+                  onSaveToken={saveToken}
+                  onClearToken={clearToken}
+                  onSync={syncRepos}
                 />
               )}
             </div>
@@ -281,51 +405,123 @@ function PreferenceRow({ label, children }: { label: string; children: ReactNode
 function LibraryPane({
   desktop,
   roots,
+  remotes,
+  hasToken,
+  tokenPersisted,
+  tokenDraft,
+  repoDraft,
   busy,
   error,
   onAdd,
   onRemove,
+  onRepoDraftChange,
+  onTokenDraftChange,
+  onAddRepo,
+  onRemoveRepo,
+  onSaveToken,
+  onClearToken,
+  onSync,
 }: {
   desktop: boolean
   roots: string[]
+  remotes: GithubRemote[]
+  hasToken: boolean
+  tokenPersisted: boolean
+  tokenDraft: string
+  repoDraft: string
   busy: boolean
   error: string
   onAdd: () => void
   onRemove: (dir: string) => void
+  onRepoDraftChange: (value: string) => void
+  onTokenDraftChange: (value: string) => void
+  onAddRepo: () => void
+  onRemoveRepo: (id: string) => void
+  onSaveToken: () => void
+  onClearToken: () => void
+  onSync: () => void
 }) {
   return (
-    <section className="grid gap-4">
-      <header className="grid gap-1">
-        <h2 className="font-heading text-base font-medium">Notes folders</h2>
-        <p className="text-sm text-muted-foreground">
-          Attach one or more folders of `.md` and `.txt` files. With more than one folder, each
-          becomes a top-level group in the sidebar.
-        </p>
-      </header>
+    <section className="grid gap-8">
+      <div className="grid gap-4">
+        <header className="grid gap-1">
+          <h2 className="font-heading text-base font-medium">Notes folders</h2>
+          <p className="text-sm text-muted-foreground">
+            Attach one or more folders of `.md` and `.txt` files. With more than one folder, each
+            becomes a top-level group in the sidebar.
+          </p>
+        </header>
 
-      {!desktop ? (
-        <p className="rounded-lg border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
-          Folder attachments are available in the desktop app.
-        </p>
-      ) : (
+        {!desktop ? (
+          <p className="rounded-lg border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
+            Folder attachments are available in the desktop app.
+          </p>
+        ) : (
+          <div className="grid gap-2">
+            {roots.length ? (
+              <ul className="grid gap-2">
+                {roots.map((root) => (
+                  <li
+                    key={root}
+                    className="flex items-center gap-2 rounded-lg border bg-muted/20 px-2.5 py-1.5"
+                  >
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs" title={root}>
+                      {root}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Remove ${root}`}
+                      disabled={busy}
+                      onClick={() => onRemove(root)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">No folders yet.</p>
+            )}
+            <Button type="button" variant="outline" className="justify-self-start" disabled={busy} onClick={onAdd}>
+              Add folder
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-4">
+        <header className="grid gap-1">
+          <h2 className="font-heading text-base font-medium">GitHub repositories</h2>
+          <p className="text-sm text-muted-foreground">
+            Paste a repo URL to map its `.md` and `.txt` files into the sidebar. Private repos need
+            a fine-grained token that lists this repository, with Contents: Read. The token stays on
+            this machine and is only sent to api.github.com.
+          </p>
+        </header>
+
         <div className="grid gap-2">
-          {roots.length ? (
+          {remotes.length ? (
             <ul className="grid gap-2">
-              {roots.map((root) => (
+              {remotes.map((remote) => (
                 <li
-                  key={root}
+                  key={remote.id}
                   className="flex items-center gap-2 rounded-lg border bg-muted/20 px-2.5 py-1.5"
                 >
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs" title={root}>
-                    {root}
+                  <Folder className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs" title={remote.url}>
+                    {remote.owner}/{remote.repo}
+                    {remote.subpath ? `/${remote.subpath}` : ''}
                   </span>
+                  <GithubMark className="size-3.5 shrink-0 text-muted-foreground" />
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={`Remove ${root}`}
+                    aria-label={`Remove ${remote.owner}/${remote.repo}`}
                     disabled={busy}
-                    onClick={() => onRemove(root)}
+                    onClick={() => onRemoveRepo(remote.id)}
                   >
                     <Trash2 />
                   </Button>
@@ -333,13 +529,70 @@ function LibraryPane({
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">No folders yet.</p>
+            <p className="text-sm text-muted-foreground">No GitHub repositories yet.</p>
           )}
-          <Button type="button" variant="outline" className="justify-self-start" disabled={busy} onClick={onAdd}>
-            Add folder
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Input
+              value={repoDraft}
+              onChange={(event) => onRepoDraftChange(event.target.value)}
+              placeholder="https://github.com/owner/repo"
+              aria-label="GitHub repository URL"
+              className="min-w-48 flex-1"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  onAddRepo()
+                }
+              }}
+            />
+            <Button type="button" variant="outline" disabled={busy || !repoDraft.trim()} onClick={onAddRepo}>
+              Add repo
+            </Button>
+            <Button type="button" variant="outline" disabled={busy || !remotes.length} onClick={onSync}>
+              <RefreshCw />
+              Sync
+            </Button>
+          </div>
         </div>
-      )}
+
+        <div className="grid gap-2">
+          <p className="text-sm">
+            Personal access token
+            {hasToken ? (
+              <span className="text-muted-foreground">
+                {' '}
+                · {tokenPersisted ? 'saved on this device' : 'kept for this session only'}
+              </span>
+            ) : null}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Input
+              type="password"
+              value={tokenDraft}
+              onChange={(event) => onTokenDraftChange(event.target.value)}
+              placeholder={hasToken ? 'Replace saved token' : 'ghp_… or github_pat_…'}
+              aria-label="GitHub personal access token"
+              autoComplete="off"
+              className="min-w-48 flex-1"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  onSaveToken()
+                }
+              }}
+            />
+            <Button type="button" variant="outline" disabled={busy || !tokenDraft.trim()} onClick={onSaveToken}>
+              Save token
+            </Button>
+            {hasToken ? (
+              <Button type="button" variant="ghost" disabled={busy} onClick={onClearToken}>
+                Clear
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
       {error && <p className="text-sm text-destructive">{error}</p>}
     </section>
   )

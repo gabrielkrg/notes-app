@@ -8,9 +8,19 @@ export type RootFiles = {
   files?: Record<string, string>
 }
 
+export type GithubRemoteSettings = {
+  id: string
+  url: string
+  owner: string
+  repo: string
+  ref?: string
+  subpath?: string
+}
+
 export type AppSettings = {
   notesRoot?: string
   notesRoots?: string[]
+  githubRemotes?: GithubRemoteSettings[]
 }
 
 function normalizeRoot(root: string): string {

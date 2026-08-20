@@ -59,6 +59,46 @@ describe('buildContent', () => {
     assert.equal(navTree[0].label, 'Scratch')
     assert.equal(pageByRoute(pages, 'scratch')!.file, 'scratch/index.txt')
   })
+
+  it('marks GitHub-sourced files as read-only', () => {
+    const { pages, githubLabels } = buildContent(
+      {
+        'php/arrays.md': '---\ntitle: Arrays\n---\n',
+        'handbook/README.md': '---\ntitle: Handbook\n---\n',
+      },
+      { githubFiles: ['handbook/README.md'] },
+    )
+    assert.equal(pages['handbook/README.md'].source, 'github')
+    assert.equal(pages['handbook/README.md'].readonly, true)
+    assert.equal(pages['php/arrays.md'].readonly, false)
+    assert.deepEqual(githubLabels, ['handbook'])
+  })
+
+  it('shows GitHub roots as owner/repo', () => {
+    const { navTree, githubNames } = buildContent(
+      { 'gabrielkrg-skills/README.md': '# Skills\n' },
+      {
+        githubFiles: ['gabrielkrg-skills/README.md'],
+        githubNames: { 'gabrielkrg-skills': 'gabrielkrg/skills' },
+      },
+    )
+    assert.equal(githubNames['gabrielkrg-skills'], 'gabrielkrg/skills')
+    assert.equal(navTree[0].label, 'gabrielkrg/skills')
+    assert.equal(navTree[0].path, 'gabrielkrg-skills')
+  })
+
+  it('does not let a repo index page replace the owner/repo label', () => {
+    const { navTree } = buildContent(
+      {
+        'gabrielkrg-skills/index.md': '---\ntitle: Skills\nnav: Skills\n---\n',
+      },
+      {
+        githubFiles: ['gabrielkrg-skills/index.md'],
+        githubNames: { 'gabrielkrg-skills': 'gabrielkrg/skills' },
+      },
+    )
+    assert.equal(navTree[0].label, 'gabrielkrg/skills')
+  })
 })
 
 describe('routeFor', () => {

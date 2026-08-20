@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { app, dialog } from 'electron'
+import { app, dialog, safeStorage } from 'electron'
 
 import { deleteFolderAt, deleteNoteAt } from '../browser/src/lib/note-delete.ts'
 import { isNoteFile, noteFileFromName, starterMarkdown, type NoteKind } from '../browser/src/lib/note-name.ts'
@@ -13,6 +13,15 @@ import {
   type AppSettings,
 } from '../browser/src/lib/notes-roots.ts'
 import { acceptedNotesRoots, isTooBroadNotesRoot, loadNotesRoots } from '../browser/src/lib/notes-walk.ts'
+import { createFileGithubCache } from '../browser/src/lib/github-file-cache.ts'
+import {
+  fetchGithubRootFiles,
+  isGithubVirtualPath,
+  normalizeGithubToken,
+  remotesFromSettings,
+  topLevelLabels,
+  type GithubRemote,
+} from '../browser/src/lib/github-notes.ts'
 
 function settingsFile(): string {
   return path.join(app.getPath('userData'), 'settings.json')
@@ -96,12 +105,106 @@ function labeled(appDir: string) {
 }
 
 function resolveInVault(appDir: string, virtualPath: string) {
+  assertLocalNote(virtualPath)
   const { root, relative } = resolveVirtualNote(virtualPath, labeled(appDir))
   return { root, relative, abs: resolveInside(root, relative) }
 }
 
-export function listNotes(appDir: string): Record<string, string> {
-  return mergeRootPages(loadNotesRoots(notesRoots(appDir)))
+let lastGithubLabels: string[] = []
+let lastGithubErrors: { id: string; message: string }[] = []
+let sessionGithubToken = ''
+let githubTokenPersisted = true
+
+function githubTokenFile(): string {
+  return path.join(app.getPath('userData'), 'github-token.bin')
+}
+
+function githubCacheDir(): string {
+  return path.join(app.getPath('userData'), 'github-cache')
+}
+
+function assertLocalNote(virtualPath: string): void {
+  if (isGithubVirtualPath(virtualPath, lastGithubLabels)) {
+    throw new Error('GitHub notes are read-only')
+  }
+}
+
+export function getGithubRemotes(): GithubRemote[] {
+  return remotesFromSettings(readSettings())
+}
+
+export function setGithubRemotes(remotes: GithubRemote[]): GithubRemote[] {
+  const next = remotesFromSettings({ githubRemotes: remotes })
+  writeSettings({ ...readSettings(), githubRemotes: next })
+  return next
+}
+
+export function getGithubToken(): string {
+  if (sessionGithubToken) return sessionGithubToken
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return ''
+    sessionGithubToken = safeStorage.decryptString(fs.readFileSync(githubTokenFile()))
+    githubTokenPersisted = true
+    return sessionGithubToken
+  } catch {
+    return ''
+  }
+}
+
+export function setGithubToken(token: string): { persisted: boolean } {
+  const next = normalizeGithubToken(token)
+  sessionGithubToken = next
+  if (!next) {
+    try {
+      fs.unlinkSync(githubTokenFile())
+    } catch {
+      /* already gone */
+    }
+    githubTokenPersisted = true
+    return { persisted: true }
+  }
+  if (!safeStorage.isEncryptionAvailable()) {
+    githubTokenPersisted = false
+    return { persisted: false }
+  }
+  fs.mkdirSync(path.dirname(githubTokenFile()), { recursive: true })
+  fs.writeFileSync(githubTokenFile(), safeStorage.encryptString(next))
+  githubTokenPersisted = true
+  return { persisted: true }
+}
+
+export function hasGithubToken(): boolean {
+  return Boolean(getGithubToken())
+}
+
+export function isGithubTokenPersisted(): boolean {
+  return githubTokenPersisted
+}
+
+export function clearGithubToken(): void {
+  setGithubToken('')
+}
+
+export function getGithubSyncErrors(): { id: string; message: string }[] {
+  return lastGithubErrors
+}
+
+export async function listNotes(
+  appDir: string,
+): Promise<{ files: Record<string, string>; githubFiles: string[]; githubNames: Record<string, string> }> {
+  const local = mergeRootPages(loadNotesRoots(notesRoots(appDir)))
+  const github = await fetchGithubRootFiles(getGithubRemotes(), {
+    token: getGithubToken(),
+    cache: createFileGithubCache(githubCacheDir()),
+    usedLabels: topLevelLabels(local),
+  })
+  lastGithubLabels = github.labels
+  lastGithubErrors = github.errors
+  return {
+    files: { ...github.files, ...local },
+    githubFiles: Object.keys(github.files),
+    githubNames: github.names,
+  }
 }
 
 export function writeNote(appDir: string, file: string, content: string): { file: string } {
@@ -120,6 +223,7 @@ export type CreateOpts = {
 }
 
 function createAt(appDir: string, { parent, name, kind }: CreateOpts & { kind: NoteKind }): { file: string; raw: string } {
+  assertLocalNote(parent || '')
   const vaults = labeled(appDir)
   if (vaults.length > 1 && !String(parent || '').trim()) {
     throw new Error('Choose a notes folder first')

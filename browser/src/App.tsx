@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 
 import { AppSidebar } from '@/components/app-sidebar'
+import { GithubMark } from '@/components/github-mark.tsx'
 import { GlobalGraph } from '@/components/global-graph'
 import { FolderFileAccordion } from '@/components/folder-file-accordion'
 import { CreateNoteDialog } from '@/components/create-note-dialog'
@@ -51,14 +52,17 @@ import { ThemeProvider } from '@/lib/theme'
 import { noteEditorHref, storageKey } from '@/lib/config.ts'
 import { isDesktop } from '@/lib/desktop'
 import type { CreatedNote } from '@/lib/desktop.ts'
+import { fetchBrowserGithubNotes } from '@/lib/github-client.ts'
+import { isGithubVirtualPath, topLevelLabels } from '@/lib/github-notes.ts'
 import { CtrlKChord } from '@/lib/key-chords'
 import { labelNotesRoots } from '@/lib/notes-roots.ts'
 import type { DeleteTarget } from '@/lib/note-delete.ts'
 import type { NoteKind } from '@/lib/note-name.ts'
 import MarkdownView from './MarkdownView.tsx'
 import {
-  buildContent,
   bundledContent,
+  bundledRawPages,
+  buildContent,
   countTopicPages,
   crumbsForRoute,
   dirForIndex,
@@ -109,7 +113,7 @@ function saveDone(set: Set<string>) {
 }
 
 function emptyContent(): Content {
-  return { pages: {}, navTree: [], topicPages: [], topicCount: 0 }
+  return { pages: {}, navTree: [], topicPages: [], topicCount: 0, githubLabels: [], githubNames: {} }
 }
 
 export default function App() {
@@ -118,6 +122,7 @@ export default function App() {
   const [roots, setRoots] = useState<string[]>([])
   const [loading, setLoading] = useState(desktop)
   const [loadError, setLoadError] = useState('')
+  const [githubError, setGithubError] = useState('')
   const [route, setRoute] = useState(() => parseHash())
   const [searchOpen, setSearchOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -144,18 +149,34 @@ export default function App() {
   const last = localStorage.getItem(LAST_KEY)
 
   async function reloadNotes() {
-    if (!window.desktop?.listNotes) {
-      setContent(bundledContent)
-      setLoading(false)
-      return
-    }
     setLoadError('')
+    setGithubError('')
     try {
-      if (window.desktop.getNotesRoots) {
-        setRoots(await window.desktop.getNotesRoots())
+      if (window.desktop?.listNotes) {
+        if (window.desktop.getNotesRoots) {
+          setRoots(await window.desktop.getNotesRoots())
+        }
+        const snapshot = await window.desktop.listNotes()
+        setContent(
+          buildContent(snapshot.files, {
+            githubFiles: snapshot.githubFiles,
+            githubNames: snapshot.githubNames,
+          }),
+        )
+        if (window.desktop.getGithubSyncErrors) {
+          const errors = await window.desktop.getGithubSyncErrors()
+          setGithubError(errors.map((item) => item.message).filter(Boolean).join(' '))
+        }
+        return
       }
-      const files = await window.desktop.listNotes()
-      setContent(buildContent(files))
+      const github = await fetchBrowserGithubNotes(topLevelLabels(bundledRawPages))
+      setContent(
+        buildContent(
+          { ...github.files, ...bundledRawPages },
+          { githubFiles: github.githubFiles, githubNames: github.githubNames },
+        ),
+      )
+      setGithubError(github.errors.map((item) => item.message).filter(Boolean).join(' '))
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Could not read notes')
       setContent(emptyContent())
@@ -165,7 +186,6 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!desktop) return
     reloadNotes()
   }, [desktop])
 
@@ -245,7 +265,8 @@ export default function App() {
     setRoute(nextRoute)
   }
 
-  function startEditing() {
+function startEditing() {
+    if (page?.readonly) return
     setDraft(page?.raw || '')
     setDirty(false)
     setEditing(true)
@@ -358,11 +379,21 @@ export default function App() {
             canCreateAtRoot={desktop && roots.length <= 1}
             protectRootFolders={roots.length > 1}
             roots={roots}
+            githubLabels={content.githubLabels}
             onCreate={(next: CreateState) => {
               if (!confirmLeave()) return
+              if (isGithubVirtualPath(next.parent, content.githubLabels)) return
               setCreateState(next)
             }}
-            onDelete={desktop ? requestDelete : undefined}
+            onDelete={
+              desktop
+                ? (target: DeleteTarget) => {
+                    const targetPath = target.kind === 'folder' ? target.path : target.file
+                    if (isGithubVirtualPath(targetPath, content.githubLabels)) return
+                    requestDelete(target)
+                  }
+                : undefined
+            }
             onRemoveRoot={desktop ? removeNotesFolder : undefined}
           />
           <SidebarInset className="min-h-0 overflow-hidden">
@@ -456,7 +487,7 @@ export default function App() {
                   <GlobalGraph pages={content.pages} onGo={go} />
                 ) : loading ? (
                   <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-6 py-10">
-                    <p className="text-sm text-muted-foreground">Reading notes from disk…</p>
+                    <p className="text-sm text-muted-foreground">Loading notes…</p>
                   </div>
                 ) : loadError ? (
                   <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-6 py-10">
@@ -475,6 +506,7 @@ export default function App() {
                     pages={content.pages}
                     topicCount={folderOverview ? countTopicPages(folderOverview) : content.topicCount}
                     folder={folderOverview}
+                    githubLabels={content.githubLabels}
                   />
                 ) : (
                   <Article
@@ -487,6 +519,7 @@ export default function App() {
                     desktop={desktop}
                     notesRoots={roots}
                     editing={editing}
+                    readonly={Boolean(page.readonly)}
                     draft={draft}
                     dirty={dirty}
                     saving={saving}
@@ -504,7 +537,7 @@ export default function App() {
                     editorRef={editorRef}
                     onSave={saveDraft}
                     onDelete={
-                      desktop
+                      desktop && !page.readonly
                         ? () => {
                             if (page.isIndex) {
                               const currentFolder = dirForIndex(tree, page)
@@ -546,6 +579,7 @@ export default function App() {
           <SettingsDialog
             open={settingsOpen}
             onOpenChange={setSettingsOpen}
+            githubError={githubError}
             onSaved={async () => {
               setEditing(false)
               setDirty(false)
@@ -585,6 +619,7 @@ function Dashboard({
   pages,
   topicCount,
   folder,
+  githubLabels = [],
 }: {
   last: string | null
   onOpen: (route: string) => void
@@ -594,22 +629,26 @@ function Dashboard({
   pages: Pages
   topicCount: number
   folder: NavDirNode | null
+  githubLabels?: string[]
 }) {
   const lastPage = !folder && last ? pageByRoute(pages, last) : null
   const lastSection = !folder && last ? sectionForRoute(tree, last) : null
+  const isGithubRepo = Boolean(folder && githubLabels.includes(folder.path))
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-10">
       <header className="grid gap-3">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          {folder ? 'Folder' : 'Keep the markdown. Read and write it here.'}
+          {folder ? (isGithubRepo ? 'Repo' : 'Folder') : 'Keep the markdown. Read and write it here.'}
         </p>
-        <h1 className="font-heading text-3xl font-medium tracking-tight sm:text-4xl">
+        <h1 className="flex items-center gap-3 font-heading text-3xl font-medium tracking-tight sm:text-4xl">
           {folder ? folder.label : 'Notes stay files. This is the desk.'}
+          {isGithubRepo ? <GithubMark className="size-6 shrink-0 text-muted-foreground" /> : null}
         </h1>
         <p className="max-w-xl text-muted-foreground">
           {folder
-            ? folder.focus || 'Folders and files in this directory.'
+            ? folder.focus ||
+              (isGithubRepo ? 'Folders and files in this repository.' : 'Folders and files in this directory.')
             : 'Notes stay on disk. Folders are menu groups. Use the sidebar or Settings to add files and point at a folder.'}
         </p>
         {last && lastPage && (
@@ -649,6 +688,7 @@ function Dashboard({
           const count = countTopicPages(node)
           const marked = countMarked(node, done)
           const href = hrefForNode(node)
+          const isGithubRoot = githubLabels.includes(node.path)
           return (
             <Card key={node.id} className="h-full p-0">
               <button
@@ -660,7 +700,12 @@ function Dashboard({
                   <div className="flex items-start gap-2.5">
                     <Folder aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <div className="grid min-w-0 gap-1">
-                      <CardTitle>{node.label}</CardTitle>
+                      <CardTitle className="flex items-center gap-2">
+                        <span className="min-w-0 truncate">{node.label}</span>
+                        {isGithubRoot ? (
+                          <GithubMark className="size-3.5 shrink-0 text-muted-foreground" />
+                        ) : null}
+                      </CardTitle>
                       <CardDescription>{node.focus}</CardDescription>
                     </div>
                   </div>
@@ -720,6 +765,7 @@ function Article({
   desktop,
   notesRoots = [],
   editing,
+  readonly = false,
   draft,
   dirty,
   saving,
@@ -739,6 +785,7 @@ function Article({
   desktop: boolean
   notesRoots?: string[]
   editing: boolean
+  readonly?: boolean
   draft: string
   dirty: boolean
   saving: boolean
@@ -773,7 +820,7 @@ function Article({
                 </Button>
               </>
             )}
-            {desktop && !editing && (
+            {desktop && !editing && !readonly && (
               <Button variant="outline" size="sm" onClick={onEdit}>
                 <Pencil />
                 Edit
@@ -785,26 +832,35 @@ function Article({
                 Delete
               </Button>
             )}
-            <Button variant="outline" size="sm" asChild>
-              <a
-                href={noteEditorHref(page.file, notesRoots.length ? { notesRoots } : {})}
-                onClick={(event) => openNoteFile(event, page.file)}
-                aria-label={`Open ${noteRelPath(page.file)} in editor`}
-              >
-                <SquareArrowOutUpRight />
-                Open file
-              </a>
-            </Button>
+            {!readonly && (
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href={noteEditorHref(page.file, notesRoots.length ? { notesRoots } : {})}
+                  onClick={(event) => openNoteFile(event, page.file)}
+                  aria-label={`Open ${noteRelPath(page.file)} in editor`}
+                >
+                  <SquareArrowOutUpRight />
+                  Open file
+                </a>
+              </Button>
+            )}
           </div>
         </div>
-        <a
-          href={noteEditorHref(page.file, notesRoots.length ? { notesRoots } : {})}
-          onClick={(event) => openNoteFile(event, page.file)}
-          className="w-fit font-mono text-sm text-muted-foreground transition-colors hover:text-foreground"
-          aria-label={`Open ${noteRelPath(page.file)} in editor`}
-        >
-          {noteRelPath(page.file)}
-        </a>
+        {readonly ? (
+          <p className="w-fit font-mono text-sm text-muted-foreground">{noteRelPath(page.file)}</p>
+        ) : (
+          <a
+            href={noteEditorHref(page.file, notesRoots.length ? { notesRoots } : {})}
+            onClick={(event) => openNoteFile(event, page.file)}
+            className="w-fit font-mono text-sm text-muted-foreground transition-colors hover:text-foreground"
+            aria-label={`Open ${noteRelPath(page.file)} in editor`}
+          >
+            {noteRelPath(page.file)}
+          </a>
+        )}
+        {readonly && !editing && (
+          <p className="text-sm text-muted-foreground">This file is from GitHub and is read-only.</p>
+        )}
         {!editing && (
           <p className="text-sm text-muted-foreground">
             Select a phrase to highlight it or attach a note.
