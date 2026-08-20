@@ -65,7 +65,8 @@ export function notesRoots(appDir: string): string[] {
     writeSettings({ ...rest, notesRoots: usable })
   }
   if (usable.length) return usable
-  return [defaultNotesRoot(appDir)]
+  const fallback = defaultNotesRoot(appDir)
+  return fs.existsSync(fallback) && fs.statSync(fallback).isDirectory() ? [fallback] : []
 }
 
 export function notesRoot(appDir: string): string {

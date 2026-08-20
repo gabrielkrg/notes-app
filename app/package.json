@@ -53,9 +53,10 @@
     "vite-plugin-electron": "^0.29.1"
   },
   "build": {
+    "electronVersion": "41.10.6",
     "appId": "dev.notes.desk",
     "productName": "Notes",
-    "icon": "public/favicon/favicon-96x96.png",
+    "icon": "public/favicon/app-icon-512.png",
     "directories": {
       "output": "release"
     },

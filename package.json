@@ -16,5 +16,10 @@
     "desktop:build:linux": "npm run desktop:build:linux -w app",
     "desktop:build:win": "npm run desktop:build:win -w app",
     "desktop:build:mac": "npm run desktop:build:mac -w app"
+  },
+  "allowScripts": {
+    "electron@41.10.6": true,
+    "electron-winstaller@5.4.0": true,
+    "esbuild@0.28.2": true
   }
 }

@@ -74,6 +74,19 @@ describe('buildContent', () => {
     assert.deepEqual(githubLabels, ['handbook'])
   })
 
+  it('still shows an attached root with no notes yet as an empty folder', () => {
+    const { navTree, topicCount } = buildContent(
+      { 'Notes/test.md': '---\ntitle: Test\n---\n' },
+      { localRootLabels: ['Notes', 'skills'] },
+    )
+    const labels = navTree.map((node) => node.label).sort()
+    assert.deepEqual(labels, ['Notes', 'Skills'])
+    const empty = navTree.find((node) => node.label === 'Skills')
+    assert.equal(empty?.type, 'dir')
+    assert.equal((empty as { children: unknown[] }).children.length, 0)
+    assert.equal(topicCount, 1)
+  })
+
   it('shows GitHub roots as owner/repo', () => {
     const { navTree, githubNames } = buildContent(
       { 'gabrielkrg-skills/README.md': '# Skills\n' },

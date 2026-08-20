@@ -7,6 +7,7 @@ import {
   FileText,
   Folder,
   Pencil,
+  RefreshCw,
   Save,
   Settings,
   SquareArrowOutUpRight,
@@ -123,6 +124,7 @@ export default function App() {
   const [loading, setLoading] = useState(desktop)
   const [loadError, setLoadError] = useState('')
   const [githubError, setGithubError] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
   const [route, setRoute] = useState(() => parseHash())
   const [searchOpen, setSearchOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -153,14 +155,18 @@ export default function App() {
     setGithubError('')
     try {
       if (window.desktop?.listNotes) {
+        let currentRoots = roots
         if (window.desktop.getNotesRoots) {
-          setRoots(await window.desktop.getNotesRoots())
+          currentRoots = await window.desktop.getNotesRoots()
+          setRoots(currentRoots)
         }
         const snapshot = await window.desktop.listNotes()
         setContent(
           buildContent(snapshot.files, {
             githubFiles: snapshot.githubFiles,
             githubNames: snapshot.githubNames,
+            localRootLabels:
+              currentRoots.length > 1 ? labelNotesRoots(currentRoots).map((item) => item.label) : [],
           }),
         )
         if (window.desktop.getGithubSyncErrors) {
@@ -464,6 +470,22 @@ function startEditing() {
                   {done.has(page.file) ? 'Read' : 'Mark as read'}
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Refresh notes"
+                disabled={refreshing}
+                onClick={async () => {
+                  setRefreshing(true)
+                  try {
+                    await reloadNotes()
+                  } finally {
+                    setRefreshing(false)
+                  }
+                }}
+              >
+                <RefreshCw className={refreshing ? 'animate-spin' : undefined} />
+              </Button>
               <Button
                 variant="outline"
                 size="icon"
