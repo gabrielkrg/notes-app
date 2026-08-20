@@ -165,8 +165,7 @@ export default function App() {
           buildContent(snapshot.files, {
             githubFiles: snapshot.githubFiles,
             githubNames: snapshot.githubNames,
-            localRootLabels:
-              currentRoots.length > 1 ? labelNotesRoots(currentRoots).map((item) => item.label) : [],
+            localRootLabels: labelNotesRoots(currentRoots).map((item) => item.label),
           }),
         )
         if (window.desktop.getGithubSyncErrors) {
@@ -382,8 +381,8 @@ function startEditing() {
             topicCount={content.topicCount}
             onGo={go}
             canCreate={desktop}
-            canCreateAtRoot={desktop && roots.length <= 1}
-            protectRootFolders={roots.length > 1}
+            canCreateAtRoot={desktop && roots.length === 0}
+            protectRootFolders={roots.length > 0}
             roots={roots}
             githubLabels={content.githubLabels}
             onCreate={(next: CreateState) => {

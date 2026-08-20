@@ -22,7 +22,7 @@ describe('joinNotesPath', () => {
 describe('noteEditorHref', () => {
   it('builds an editor URL from env-style options', () => {
     assert.equal(
-      noteEditorHref('php/arrays.md', {
+      noteEditorHref('notes/php/arrays.md', {
         notesRoot: '/home/me/notes',
         protocol: 'cursor://file',
       }),

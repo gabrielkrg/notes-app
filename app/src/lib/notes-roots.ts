@@ -58,7 +58,6 @@ export function labelNotesRoots(roots: string[] = []): LabeledRoot[] {
 
 export function attachedRootForDir(roots: string[] = [], dirPath = ''): string | null {
   const labeled = labelNotesRoots(roots)
-  if (labeled.length < 2) return null
   const found = labeled.find((item) => item.label === dirPath)
   return found ? found.root : null
 }
@@ -85,7 +84,6 @@ function hiddenRelative(relative: string): boolean {
 
 export function mergeRootPages(rootFiles: RootFiles[] = []): Record<string, string> {
   const labeled = labelNotesRoots(rootFiles.map((item) => item.root))
-  const prefix = labeled.length > 1
   const out: Record<string, string> = {}
   for (let i = 0; i < rootFiles.length; i += 1) {
     const files = rootFiles[i].files || {}
@@ -93,8 +91,7 @@ export function mergeRootPages(rootFiles: RootFiles[] = []): Record<string, stri
     for (const [key, content] of Object.entries(files)) {
       const relative = relativeToRoot(key, labeled[i].root)
       if (!relative || hiddenRelative(relative)) continue
-      const virt = prefix ? `${label}/${relative}` : relative
-      out[virt] = content
+      out[`${label}/${relative}`] = content
     }
   }
   return out
@@ -112,9 +109,6 @@ export function resolveVirtualNote(virtualPath: string, labeledRoots: LabeledRoo
   const relative = String(virtualPath || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
   if (!labeledRoots.length) {
     throw new Error('No notes folders configured')
-  }
-  if (labeledRoots.length === 1) {
-    return { ...labeledRoots[0], relative }
   }
   const slash = relative.indexOf('/')
   const label = slash === -1 ? relative : relative.slice(0, slash)

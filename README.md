@@ -35,7 +35,7 @@ Desktop only:
 - Edit and save notes in the app.
 - New note / new folder from the sidebar (right-click).
 - Delete a note or folder.
-- **Settings** — attach one or more folders of notes. With more than one, each folder is a top-level group.
+- **Settings** — attach one or more folders of notes. Each folder is a top-level group.
 - `Ctrl+K` then `Ctrl+O` — pick a folder to attach.
 
 ---

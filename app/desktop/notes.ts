@@ -226,7 +226,7 @@ export type CreateOpts = {
 function createAt(appDir: string, { parent, name, kind }: CreateOpts & { kind: NoteKind }): { file: string; raw: string } {
   assertLocalNote(parent || '')
   const vaults = labeled(appDir)
-  if (vaults.length > 1 && !String(parent || '').trim()) {
+  if (vaults.length > 0 && !String(parent || '').trim()) {
     throw new Error('Choose a notes folder first')
   }
   const file = noteFileFromName(name || '', { parent, kind })

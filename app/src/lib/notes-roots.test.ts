@@ -48,7 +48,7 @@ describe('labelNotesRoots', () => {
 })
 
 describe('mergeRootPages', () => {
-  it('keeps relative keys unprefixed for a single root', () => {
+  it('prefixes keys with the folder name for a single root', () => {
     const pages = mergeRootPages([
       {
         root: '/home/me/notes',
@@ -57,7 +57,7 @@ describe('mergeRootPages', () => {
         },
       },
     ])
-    assert.deepEqual(pages, { 'php/arrays.md': '# Arrays' })
+    assert.deepEqual(pages, { 'notes/php/arrays.md': '# Arrays' })
   })
 
   it('prefixes keys with the folder name when there are multiple roots', () => {
@@ -83,7 +83,7 @@ describe('mergeRootPages', () => {
         files: { '../../notes/php/arrays.md': '# Arrays' },
       },
     ])
-    assert.equal(pages['php/arrays.md'], '# Arrays')
+    assert.equal(pages['notes/php/arrays.md'], '# Arrays')
   })
 
   it('keeps a relative path that contains the folder name', () => {
@@ -93,7 +93,7 @@ describe('mergeRootPages', () => {
         files: { 'php/notes/foo.md': '# Foo' },
       },
     ])
-    assert.equal(pages['php/notes/foo.md'], '# Foo')
+    assert.equal(pages['notes/php/notes/foo.md'], '# Foo')
   })
 })
 
@@ -101,12 +101,16 @@ describe('resolveVirtualNote', () => {
   const one = labelNotesRoots(['/home/me/notes'])
   const many = labelNotesRoots(['/home/me/notes', '/home/me/work'])
 
-  it('maps a path onto the only root', () => {
-    assert.deepEqual(resolveVirtualNote('php/arrays.md', one), {
+  it('maps a prefixed path onto the only root', () => {
+    assert.deepEqual(resolveVirtualNote('notes/php/arrays.md', one), {
       root: '/home/me/notes',
       label: 'notes',
       relative: 'php/arrays.md',
     })
+  })
+
+  it('rejects a note that is not inside the vault when there is a single root', () => {
+    assert.throws(() => resolveVirtualNote('php/arrays.md', one), /notes folder/i)
   })
 
   it('maps a prefixed path onto the matching root', () => {
@@ -124,7 +128,11 @@ describe('resolveVirtualNote', () => {
 })
 
 describe('attachedRootForDir', () => {
-  it('returns null when a single folder is attached', () => {
+  it('maps a single attached folder onto its top-level group', () => {
+    assert.equal(attachedRootForDir(['/home/me/notes'], 'notes'), '/home/me/notes')
+  })
+
+  it('returns null for children inside a single attached folder', () => {
     assert.equal(attachedRootForDir(['/home/me/notes'], 'php'), null)
   })
 

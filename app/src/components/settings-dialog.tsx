@@ -447,8 +447,8 @@ function LibraryPane({
         <header className="grid gap-1">
           <h2 className="font-heading text-base font-medium">Notes folders</h2>
           <p className="text-sm text-muted-foreground">
-            Attach one or more folders of `.md` and `.txt` files. With more than one folder, each
-            becomes a top-level group in the sidebar.
+            Attach one or more folders of `.md` and `.txt` files. Each folder appears as a top-level
+            group in the sidebar, matching the folder you attached.
           </p>
         </header>
 
