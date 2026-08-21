@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 
 import { storageKey } from './config.ts'
-import { overlayFromCssColors } from './title-bar.ts'
+import { titleBarOverlay } from './title-bar.ts'
 
 export type Theme = 'light' | 'dark' | 'system'
 
@@ -20,27 +20,18 @@ function isDark(theme: Theme): boolean {
   return window.matchMedia('(prefers-color-scheme: dark)').matches
 }
 
-function resolvedCssColor(variable: string): string {
-  const probe = document.createElement('div')
-  probe.style.color = `var(${variable})`
-  document.documentElement.appendChild(probe)
-  const color = getComputedStyle(probe).color
-  probe.remove()
-  return color
-}
-
-function syncDesktopTitleBar(): void {
+function syncDesktopTitleBar(dark: boolean): void {
   if (!window.desktop?.setTitleBarOverlay) return
-  void window.desktop.setTitleBarOverlay(
-    overlayFromCssColors(resolvedCssColor('--background'), resolvedCssColor('--foreground')),
-  )
+  // Use known light/dark tokens. Parsing computed CSS fails for oklch and used
+  // to leave the Windows caption overlay stuck on the dark fallback.
+  void window.desktop.setTitleBarOverlay(titleBarOverlay(dark))
 }
 
 export function applyTheme(theme: Theme): void {
   const dark = isDark(theme)
   document.documentElement.classList.toggle('dark', dark)
   document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
-  syncDesktopTitleBar()
+  syncDesktopTitleBar(dark)
 }
 
 function readTheme(): Theme {
