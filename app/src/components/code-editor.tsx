@@ -1,16 +1,20 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react'
 
 import { highlightLanguage, highlightSource } from '@/lib/code-highlight.ts'
-import type { NoteFileType } from '@/lib/note-name.ts'
+import { revealInElement, revealInTextarea, type RevealOptions } from '@/lib/find-dom.ts'
+import type { TextMatch } from '@/lib/find-in-page.ts'
+import type { CodeFileType } from '@/lib/note-name.ts'
 import { cn } from '@/lib/utils'
 
 export type CodeEditorHandle = {
   flush: () => string
+  findText: () => string
+  revealMatch: (match: TextMatch, options?: RevealOptions) => void
 }
 
 type CodeEditorProps = {
   value: string
-  kind: Exclude<NoteFileType, 'markdown'>
+  kind: CodeFileType
   readOnly?: boolean
   onChange?: (value: string) => void
 }
@@ -23,10 +27,20 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
 ) {
   const valueRef = useRef(value)
   valueRef.current = value
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const areaRef = useRef<HTMLTextAreaElement>(null)
 
   useImperativeHandle(ref, () => ({
     flush() {
       return valueRef.current
+    },
+    findText() {
+      return valueRef.current
+    },
+    revealMatch(match: TextMatch, options?: RevealOptions) {
+      const pre = wrapRef.current?.querySelector('pre')
+      if (pre instanceof HTMLElement) revealInElement(pre, match, { focus: false })
+      if (areaRef.current) revealInTextarea(areaRef.current, match, wrapRef.current || undefined, options)
     },
   }))
 
@@ -35,6 +49,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
 
   return (
     <div
+      ref={wrapRef}
       className={cn(
         'grid w-full overflow-auto rounded-lg border bg-muted/20 has-[:focus-visible]:border-ring has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50',
         readOnly ? 'max-h-[min(70vh,44rem)]' : 'min-h-128',
@@ -47,6 +62,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
         />
       </pre>
       <textarea
+        ref={areaRef}
         value={value}
         readOnly={readOnly}
         spellCheck={false}

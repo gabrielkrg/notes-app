@@ -17,10 +17,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
+import { collectText, revealInElement, revealInTextarea, type RevealOptions } from '@/lib/find-dom.ts'
+import type { TextMatch } from '@/lib/find-in-page.ts'
 import { htmlToMd, joinNote, mdToHtml, splitFrontmatter } from '@/lib/md-wysiwyg.ts'
 
 export type NoteEditorHandle = {
   flush: () => string
+  findText: () => string
+  revealMatch: (match: TextMatch, options?: RevealOptions) => void
 }
 
 type NoteEditorProps = {
@@ -31,6 +35,7 @@ type NoteEditorProps = {
 export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function NoteEditor({ value, onChange }, ref) {
   const [tab, setTab] = useState<'editor' | 'text'>('editor')
   const visualRef = useRef<HTMLDivElement>(null)
+  const textRef = useRef<HTMLTextAreaElement>(null)
   const prefixRef = useRef('')
   const lastEmittedRef = useRef(value)
   const tabRef = useRef(tab)
@@ -69,6 +74,17 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     flush() {
       if (tabRef.current === 'editor' && visualRef.current) return emitFromVisual()
       return lastEmittedRef.current
+    },
+    findText() {
+      if (tabRef.current === 'editor' && visualRef.current) return collectText(visualRef.current)
+      return lastEmittedRef.current
+    },
+    revealMatch(match: TextMatch, options?: RevealOptions) {
+      if (tabRef.current === 'editor' && visualRef.current) {
+        revealInElement(visualRef.current, match, options)
+        return
+      }
+      if (textRef.current) revealInTextarea(textRef.current, match, undefined, options)
     },
   }))
 
@@ -233,6 +249,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
         </>
       ) : (
         <Textarea
+          ref={textRef}
           value={value}
           onChange={onTextChange}
           spellCheck={false}

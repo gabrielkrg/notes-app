@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-import type { CreateNoteInput, DeleteFolderInput, GithubRemoteInput } from '../src/lib/desktop.ts'
+import type { CreateNoteInput, DeleteFolderInput, GithubRemoteInput, RenameFolderInput, RenameNoteInput } from '../src/lib/desktop.ts'
 
 contextBridge.exposeInMainWorld('desktop', {
   platform: process.platform,
@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('desktop', {
   createFolder: (opts: CreateNoteInput) => ipcRenderer.invoke('create-folder', opts),
   deleteNote: (file: string) => ipcRenderer.invoke('delete-note', file),
   deleteFolder: (opts: DeleteFolderInput) => ipcRenderer.invoke('delete-folder', opts),
+  renameNote: (opts: RenameNoteInput) => ipcRenderer.invoke('rename-note', opts),
+  renameFolder: (opts: RenameFolderInput) => ipcRenderer.invoke('rename-folder', opts),
   getNotesRoot: () => ipcRenderer.invoke('get-notes-root'),
   getNotesRoots: () => ipcRenderer.invoke('get-notes-roots'),
   setNotesRoot: (dir: string) => ipcRenderer.invoke('set-notes-root', dir),

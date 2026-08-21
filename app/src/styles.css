@@ -234,6 +234,11 @@
   -webkit-app-region: no-drag;
 }
 
+::highlight(notes-find) {
+  color: inherit;
+  background-color: color-mix(in oklch, var(--highlight) 72%, transparent);
+}
+
 .ann-mark,
 .typeset-docs mark {
   color: inherit;

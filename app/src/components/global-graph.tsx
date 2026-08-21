@@ -367,7 +367,7 @@ export function GlobalGraph({ pages, onGo }: { pages: Pages; onGo: (route: strin
   if (noteCount === 0) {
     return (
       <div className="absolute inset-0 overflow-auto bg-background">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-6 py-8">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-6 py-8">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Notes
           </p>

@@ -3,7 +3,8 @@ import path from 'node:path'
 import { app, dialog, safeStorage } from 'electron'
 
 import { deleteFolderAt, deleteNoteAt } from '../src/lib/note-delete.ts'
-import { isNoteFile, noteFileFromName, parseNoteFileType, starterForType, type NoteKind } from '../src/lib/note-name.ts'
+import { renameFolderAt, renameNoteAt } from '../src/lib/note-rename.ts'
+import { isNoteFile, nextUntitledName, noteFileFromName, parseNoteFileType, starterForType, type NoteKind } from '../src/lib/note-name.ts'
 import { readAssetAt } from '../src/lib/note-asset.ts'
 import { resolveInside } from '../src/lib/note-path.ts'
 import {
@@ -257,12 +258,20 @@ function createAt(appDir: string, { parent, name, kind, type }: CreateOpts & { k
     throw new Error('Choose a notes folder first')
   }
   const noteType = kind === 'folder' ? 'markdown' : parseNoteFileType(type)
-  const file = noteFileFromName(name || '', { parent: parentPath, kind, type: noteType })
+  const title =
+    String(name || '').trim() ||
+    (kind === 'note'
+      ? nextUntitledName((file) => fs.existsSync(resolveInVault(appDir, file).abs), {
+          parent: parentPath,
+          kind,
+          type: noteType,
+        })
+      : '')
+  const file = noteFileFromName(title, { parent: parentPath, kind, type: noteType })
   const { abs } = resolveInVault(appDir, file)
   if (fs.existsSync(abs)) {
     throw new Error('A note with that name already exists')
   }
-  const title = String(name || '').trim()
   const raw = starterForType(noteType, title)
   fs.mkdirSync(path.dirname(abs), { recursive: true })
   fs.writeFileSync(abs, raw, 'utf8')
@@ -300,4 +309,31 @@ export function deleteFolder(
     throw new Error('Remove this folder in Settings instead')
   }
   return deleteFolderAt(root, relative, { confirmName, expectedNames })
+}
+
+function virtualPath(label: string, relative: string): string {
+  return relative ? `${label}/${relative}` : label
+}
+
+export function renameNote(
+  appDir: string,
+  { file = '', name = '' }: { file?: string; name?: string } = {},
+): { file: string } {
+  assertLocalNote(file)
+  const resolved = resolveVirtualNote(file, labeled(appDir))
+  const result = renameNoteAt(resolved.root, resolved.relative, name)
+  return { file: virtualPath(resolved.label, result.file) }
+}
+
+export function renameFolder(
+  appDir: string,
+  { path: dirPath = '', name = '' }: { path?: string; name?: string } = {},
+): { path: string } {
+  assertLocalNote(dirPath)
+  const resolved = resolveVirtualNote(dirPath, labeled(appDir))
+  if (!resolved.relative) {
+    throw new Error('Rename this folder in Settings instead')
+  }
+  const result = renameFolderAt(resolved.root, resolved.relative, name)
+  return { path: virtualPath(resolved.label, result.path) }
 }

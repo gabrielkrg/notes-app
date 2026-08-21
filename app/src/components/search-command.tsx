@@ -25,12 +25,12 @@ function useIsMac() {
   return mac
 }
 
-export function ShortcutHint({ className }: { className?: string }) {
+export function ShortcutHint({ className, keyLabel = 'K' }: { className?: string; keyLabel?: string }) {
   const mac = useIsMac()
   return (
     <KbdGroup className={className}>
       <Kbd>{mac ? '⌘' : 'Ctrl'}</Kbd>
-      <Kbd>K</Kbd>
+      <Kbd>{keyLabel}</Kbd>
     </KbdGroup>
   )
 }

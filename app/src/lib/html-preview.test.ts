@@ -4,11 +4,15 @@ import { describe, it } from 'node:test'
 import vm from 'node:vm'
 
 import {
+  HTML_PREVIEW_FIND_MESSAGE,
+  HTML_PREVIEW_FIND_RESULT_MESSAGE,
   HTML_PREVIEW_HEIGHT_MESSAGE,
   HTML_PREVIEW_SANDBOX,
   HTML_PREVIEW_SCROLL_MESSAGE,
   HTML_PREVIEW_STORAGE_MESSAGE,
   collectPreviewAssetPaths,
+  isHtmlPreviewFindMessage,
+  isHtmlPreviewFindResultMessage,
   isHtmlPreviewHeightMessage,
   isHtmlPreviewScrollMessage,
   isHtmlPreviewStorageMessage,
@@ -263,5 +267,42 @@ describe('isHtmlPreviewScrollMessage', () => {
 describe('scrollOffsetForPreview', () => {
   it('maps an iframe-local y to the parent scroller', () => {
     assert.equal(scrollOffsetForPreview(80, 0, 200, 420), 700)
+  })
+})
+
+describe('html preview find messages', () => {
+  it('accepts a query and index for the preview iframe', () => {
+    assert.equal(isHtmlPreviewFindMessage({ type: HTML_PREVIEW_FIND_MESSAGE, query: 'hello', index: 0 }), true)
+    assert.equal(isHtmlPreviewFindMessage({ type: HTML_PREVIEW_FIND_MESSAGE, query: 'hello' }), false)
+  })
+
+  it('accepts a find result from the preview iframe', () => {
+    assert.equal(
+      isHtmlPreviewFindResultMessage({ type: HTML_PREVIEW_FIND_RESULT_MESSAGE, count: 2, index: 1, y: 40 }),
+      true,
+    )
+    assert.equal(
+      isHtmlPreviewFindResultMessage({ type: HTML_PREVIEW_FIND_RESULT_MESSAGE, count: -1, index: 0, y: 0 }),
+      false,
+    )
+  })
+
+  it('embeds find commands in the preview bootstrap', () => {
+    const source = previewBootstrapSource()
+    assert.match(source, new RegExp(HTML_PREVIEW_FIND_MESSAGE))
+    assert.match(source, new RegExp(HTML_PREVIEW_FIND_RESULT_MESSAGE))
+    assert.match(source, /payload\.reveal !== false/)
+    assert.match(source, /payload\.focus === true/)
+  })
+
+  it('accepts an optional reveal flag on find messages', () => {
+    assert.equal(
+      isHtmlPreviewFindMessage({ type: HTML_PREVIEW_FIND_MESSAGE, query: 'hello', index: 0, reveal: false }),
+      true,
+    )
+    assert.equal(
+      isHtmlPreviewFindMessage({ type: HTML_PREVIEW_FIND_MESSAGE, query: 'hello', index: 0, reveal: 'no' }),
+      false,
+    )
   })
 })

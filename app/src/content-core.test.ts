@@ -109,6 +109,45 @@ describe('buildContent', () => {
     assert.equal(pages['php/widget.html'].title, 'Heading Only')
   })
 
+  it('uses only the file name when a note has no title or heading', () => {
+    const { pages, navTree } = buildContent({
+      'Documents/jobs.txt': 'plain text with no heading\n',
+      'Documents/DIQSEO/ABELOHOST.txt': 'another untitled note\n',
+    })
+    assert.equal(pages['Documents/jobs.txt'].title, 'jobs.txt')
+    assert.equal(pages['Documents/jobs.txt'].navLabel, 'jobs.txt')
+    assert.equal(pages['Documents/DIQSEO/ABELOHOST.txt'].title, 'ABELOHOST.txt')
+
+    const documents = navTree.find((node) => node.path === 'Documents')
+    assert.equal(documents?.type, 'dir')
+    const jobs = documents?.type === 'dir'
+      ? documents.children.find((node) => node.type === 'page' && node.page.file === 'Documents/jobs.txt')
+      : undefined
+    assert.equal(jobs?.label, 'jobs.txt')
+  })
+
+  it('keeps a heading as the title when one exists', () => {
+    const { pages } = buildContent({
+      'Documents/jobs.txt': '# Job search\n\nNotes about openings.\n',
+    })
+    assert.equal(pages['Documents/jobs.txt'].title, 'Job search')
+  })
+
+  it('stores only a short preview in the card blurb', () => {
+    const { pages } = buildContent({
+      'Documents/long.txt': `${'line of notes without a blank break\n'.repeat(80)}`,
+    })
+    assert.ok(pages['Documents/long.txt'].blurb.length <= 160)
+    assert.match(pages['Documents/long.txt'].raw, /line of notes without a blank break/)
+  })
+
+  it('strips markup from html card previews', () => {
+    const html = `<div class="wpbc">${'<button>Book now</button>'.repeat(40)}</div>`
+    const { pages } = buildContent({ 'demo/form.html': html })
+    assert.equal(pages['demo/form.html'].blurb.includes('<'), false)
+    assert.ok(pages['demo/form.html'].blurb.length <= 160)
+  })
+
   it('does not parse yaml frontmatter in css or js', () => {
     const { pages } = buildContent({
       'php/theme.css': '---\ntitle: Stolen\n---\n\nbody { color: red; }',
@@ -172,6 +211,22 @@ describe('buildContent', () => {
     )
     assert.equal(navTree[0].label, 'gabrielkrg/skills')
   })
+
+  it('lists folders before files in a directory', () => {
+    const { navTree } = buildContent({
+      'Documents/1. set ownership.txt': 'plain note\n',
+      'Documents/jobs.txt': 'jobs\n',
+      'Documents/DIQSEO/host.txt': 'host\n',
+    })
+    const documents = navTree.find((node) => node.path === 'Documents')
+    assert.equal(documents?.type, 'dir')
+    if (documents?.type !== 'dir') return
+    assert.deepEqual(
+      documents.children.map((node) => node.type),
+      ['dir', 'page', 'page'],
+    )
+    assert.equal(documents.children[0].path, 'Documents/DIQSEO')
+  })
 })
 
 describe('hoistNavRoot', () => {
@@ -204,6 +259,48 @@ describe('hoistNavRoot', () => {
       false,
     )
     assert.equal(hoisted[0].label, 'Attention')
+  })
+
+  it('lists folders before files after the default vault is hoisted', () => {
+    const { navTree } = buildContent({
+      'notes/attention.md': '---\ntitle: Attention\n---\n',
+      'notes/folder/index.md': '---\ntitle: Folder\n---\n',
+      'work/sql.md': '---\ntitle: SQL\n---\n',
+    })
+    const hoisted = hoistNavRoot(navTree, 'notes')
+    assert.deepEqual(
+      hoisted.map((node) => node.type),
+      ['dir', 'dir', 'page'],
+    )
+  })
+
+  it('puts other folders above hoisted default-vault files, alphabetically', () => {
+    const { navTree } = buildContent(
+      {
+        'Documents/discord.txt': 'chat\n',
+        'Documents/Gabriel Rodrigues.txt': 'name\n',
+        'notes/hello.md': '# Hi\n',
+        'gabrielkrg-skills/README.md': '# Skills\n',
+      },
+      {
+        githubFiles: ['gabrielkrg-skills/README.md'],
+        githubNames: { 'gabrielkrg-skills': 'gabrielkrg/skills' },
+        localRootLabels: ['Documents', 'notes'],
+      },
+    )
+    const hoisted = hoistNavRoot(navTree, 'Documents')
+    assert.deepEqual(
+      hoisted.map((node) => node.type),
+      ['dir', 'dir', 'page', 'page'],
+    )
+    assert.deepEqual(
+      hoisted.filter((node) => node.type === 'dir').map((node) => node.label),
+      ['gabrielkrg/skills', 'Notes'],
+    )
+    assert.deepEqual(
+      hoisted.filter((node) => node.type === 'page').map((node) => node.label),
+      ['discord.txt', 'Gabriel Rodrigues.txt'],
+    )
   })
 
   it('leaves the tree unchanged when the label is empty', () => {
@@ -291,9 +388,10 @@ describe('buildNoteGraph', () => {
     assert.deepEqual(graph.edges, [{ source: 'php/index.md', target: 'php/arrays.md' }])
   })
 
-  it('does not parse markdown links inside html, css, or js', () => {
+  it('does not parse markdown links inside html, css, js, or txt', () => {
     const { pages } = buildContent({
       'php/widget.html': '<p>See [Arrays](arrays.md)</p>',
+      'php/notes.txt': 'See [Arrays](arrays.md)\n',
       'php/arrays.md': '# Arrays\n',
     })
     const graph = buildNoteGraph(pages)

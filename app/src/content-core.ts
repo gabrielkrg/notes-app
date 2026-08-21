@@ -143,9 +143,14 @@ function titleFrom(body: string, fallback: string): string {
   return match ? match[1].trim() : fallback
 }
 
+function fileName(file: string): string {
+  const cleaned = String(file).replace(/\\/g, '/')
+  return cleaned.split('/').pop() || cleaned
+}
+
 function titleFromFile(file: string): string {
-  const base = String(file).split('/').pop() || file
-  return labelFromSlug(base.replace(/\.[^.]+$/, '')) || file
+  const base = fileName(file)
+  return labelFromSlug(base.replace(/\.[^.]+$/, '')) || base
 }
 
 function stripTags(value: string): string {
@@ -173,6 +178,18 @@ function firstParagraph(body: string): string {
     return trimmed.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
   }
   return ''
+}
+
+const PREVIEW_LIMIT = 140
+
+function previewText(value: string, limit = PREVIEW_LIMIT): string {
+  const text = stripTags(String(value || ''))
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!text) return ''
+  if (text.length <= limit) return text
+  return `${text.slice(0, limit).trimEnd()}…`
 }
 
 export function routeFor(file: string): string {
@@ -218,10 +235,11 @@ function buildPages(rawPages: Record<string, string>, githubFiles: Set<string>):
     const source = String(raw)
     const kind = fileKind(file)
     const parsed = parseFrontmatter(source)
-    const data = kind === 'markdown' ? parsed.data : {}
-    const body = kind === 'markdown' ? parsed.body : source
+    const usesMeta = kind === 'markdown' || kind === 'text'
+    const data = usesMeta ? parsed.data : {}
+    const body = usesMeta ? parsed.body : source
     const fromGithub = githubFiles.has(file)
-    const fallback = kind === 'markdown' ? file : titleFromFile(file)
+    const fallback = usesMeta ? fileName(file) : titleFromFile(file)
     const title =
       kind === 'html'
         ? titleFromHtml(source, fallback)
@@ -237,7 +255,7 @@ function buildPages(rawPages: Record<string, string>, githubFiles: Set<string>):
       focus: fmString(data, 'focus'),
       cue: Array.isArray(data.cue) ? data.cue.filter(Boolean) : [],
       body,
-      blurb: fmString(data, 'focus') || firstParagraph(body),
+      blurb: previewText(fmString(data, 'focus') || firstParagraph(body)),
       readonly: fromGithub,
       ...(fromGithub ? { source: 'github' as const } : {}),
     }
@@ -246,10 +264,15 @@ function buildPages(rawPages: Record<string, string>, githubFiles: Set<string>):
 }
 
 function sortNodes(nodes: NavNode[]): void {
-  nodes.sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
+  nodes.sort(compareNavNodes)
   for (const node of nodes) {
     if (node.type === 'dir' && node.children.length) sortNodes(node.children)
   }
+}
+
+export function compareNavNodes(a: NavNode, b: NavNode): number {
+  if (a.type !== b.type) return a.type === 'dir' ? -1 : 1
+  return a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' })
 }
 
 function buildNavTree(
@@ -287,7 +310,7 @@ function buildNavTree(
       dir.page = page
       if (!githubNames[dirPath]) dir.label = page.navLabel || page.title
       dir.order = page.order
-      dir.focus = page.focus || page.blurb
+      dir.focus = previewText(page.focus || page.blurb)
       continue
     }
 
@@ -320,7 +343,9 @@ export function hoistNavRoot(tree: NavNode[] = [], label = ''): NavNode[] {
   if (idx === -1) return tree
   const node = tree[idx]
   if (node.type !== 'dir') return tree
-  return [...tree.slice(0, idx), ...node.children, ...tree.slice(idx + 1)]
+  const next = [...tree.slice(0, idx), ...node.children, ...tree.slice(idx + 1)]
+  sortNodes(next)
+  return next
 }
 
 export type BuildContentOptions = {
@@ -451,9 +476,8 @@ export function dirForRoute(navTree: NavNode[], route: string): NavDirNode | nul
 }
 
 export function overviewNodes(navTree: NavNode[], route: string): NavNode[] {
-  if (!route) return navTree
-  const folder = dirForRoute(navTree, route)
-  return folder ? folder.children : navTree
+  const nodes = route ? dirForRoute(navTree, route)?.children || navTree : navTree
+  return [...nodes].sort(compareNavNodes)
 }
 
 export function hrefForNode(node: NavNode): string {

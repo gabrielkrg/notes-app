@@ -2,6 +2,8 @@ export const HTML_PREVIEW_SANDBOX = 'allow-scripts'
 export const HTML_PREVIEW_HEIGHT_MESSAGE = 'notes-html-preview-height'
 export const HTML_PREVIEW_STORAGE_MESSAGE = 'notes-html-preview-storage'
 export const HTML_PREVIEW_SCROLL_MESSAGE = 'notes-html-preview-scroll'
+export const HTML_PREVIEW_FIND_MESSAGE = 'notes-html-preview-find'
+export const HTML_PREVIEW_FIND_RESULT_MESSAGE = 'notes-html-preview-find-result'
 
 type StorageLike = {
   getItem: (key: string) => string | null
@@ -57,6 +59,38 @@ export function isHtmlPreviewScrollMessage(
   const payload = data as { type?: unknown; y?: unknown }
   return (
     payload.type === HTML_PREVIEW_SCROLL_MESSAGE &&
+    typeof payload.y === 'number' &&
+    Number.isFinite(payload.y)
+  )
+}
+
+export function isHtmlPreviewFindMessage(
+  data: unknown,
+): data is { type: typeof HTML_PREVIEW_FIND_MESSAGE; query: string; index: number; reveal?: boolean; focus?: boolean } {
+  if (!data || typeof data !== 'object') return false
+  const payload = data as { type?: unknown; query?: unknown; index?: unknown; reveal?: unknown; focus?: unknown }
+  return (
+    payload.type === HTML_PREVIEW_FIND_MESSAGE &&
+    typeof payload.query === 'string' &&
+    typeof payload.index === 'number' &&
+    Number.isFinite(payload.index) &&
+    (payload.reveal === undefined || typeof payload.reveal === 'boolean') &&
+    (payload.focus === undefined || typeof payload.focus === 'boolean')
+  )
+}
+
+export function isHtmlPreviewFindResultMessage(
+  data: unknown,
+): data is { type: typeof HTML_PREVIEW_FIND_RESULT_MESSAGE; count: number; index: number; y: number } {
+  if (!data || typeof data !== 'object') return false
+  const payload = data as { type?: unknown; count?: unknown; index?: unknown; y?: unknown }
+  return (
+    payload.type === HTML_PREVIEW_FIND_RESULT_MESSAGE &&
+    typeof payload.count === 'number' &&
+    Number.isFinite(payload.count) &&
+    payload.count >= 0 &&
+    typeof payload.index === 'number' &&
+    Number.isFinite(payload.index) &&
     typeof payload.y === 'number' &&
     Number.isFinite(payload.y)
   )
@@ -158,6 +192,107 @@ export function previewBootstrapSource(): string {
       parent.postMessage({ type: ${JSON.stringify(HTML_PREVIEW_SCROLL_MESSAGE)}, y: target.getBoundingClientRect().top }, '*');
     } catch (err) {}
   }, true);
+  if (typeof addEventListener === 'function') {
+    addEventListener('message', function (event) {
+      var payload = event && event.data;
+      if (!payload || payload.type !== ${JSON.stringify(HTML_PREVIEW_FIND_MESSAGE)}) return;
+      notesPreviewFind(payload);
+    });
+  }
+}
+${previewFindSource()}`
+}
+
+export function previewFindSource(): string {
+  return `function notesPreviewFind(payload) {
+  var query = String(payload && payload.query || '');
+  var index = Number(payload && payload.index);
+  var reveal = payload && payload.reveal !== false;
+  var focus = payload && payload.focus === true;
+  var root = document.body || document.documentElement;
+  function reply(count, active, y) {
+    try {
+      parent.postMessage({ type: ${JSON.stringify(HTML_PREVIEW_FIND_RESULT_MESSAGE)}, count: count, index: active, y: y }, '*');
+    } catch (err) {}
+  }
+  if (!root || !document.createTreeWalker) {
+    reply(0, -1, 0);
+    return;
+  }
+  var haystack = '';
+  var walker = document.createTreeWalker(root, 4);
+  var node;
+  while ((node = walker.nextNode())) haystack += node.nodeValue || '';
+  var needle = query.trim().toLowerCase();
+  var matches = [];
+  if (needle) {
+    var text = haystack.toLowerCase();
+    var from = 0;
+    while (from <= text.length - needle.length) {
+      var start = text.indexOf(needle, from);
+      if (start === -1) break;
+      matches.push([start, start + needle.length]);
+      from = start + 1;
+    }
+  }
+  var sel = document.getSelection && document.getSelection();
+  if (!matches.length) {
+    if (reveal && sel && sel.removeAllRanges) sel.removeAllRanges();
+    reply(0, -1, 0);
+    return;
+  }
+  var count = matches.length;
+  var active = ((index % count) + count) % count;
+  if (!reveal) {
+    reply(count, active, 0);
+    return;
+  }
+  var rangeStart = matches[active][0];
+  var rangeEnd = matches[active][1];
+  walker = document.createTreeWalker(root, 4);
+  var offset = 0;
+  var startNode = null;
+  var startOff = 0;
+  var endNode = null;
+  var endOff = 0;
+  while ((node = walker.nextNode())) {
+    var len = (node.nodeValue || '').length;
+    if (!startNode && rangeStart <= offset + len) {
+      startNode = node;
+      startOff = Math.max(0, rangeStart - offset);
+    }
+    if (rangeEnd <= offset + len) {
+      endNode = node;
+      endOff = Math.max(0, rangeEnd - offset);
+      break;
+    }
+    offset += len;
+  }
+  if (!startNode || !endNode || !document.createRange) {
+    reply(count, active, 0);
+    return;
+  }
+  var range = document.createRange();
+  range.setStart(startNode, Math.min(startOff, (startNode.nodeValue || '').length));
+  range.setEnd(endNode, Math.min(endOff, (endNode.nodeValue || '').length));
+  try {
+    if (!document.getElementById('notes-find-style')) {
+      var style = document.createElement('style');
+      style.id = 'notes-find-style';
+      style.textContent = '::highlight(notes-find){color:inherit;background-color:rgba(249,226,175,.85)}';
+      (document.head || document.documentElement).appendChild(style);
+    }
+    if (window.CSS && CSS.highlights && window.Highlight) {
+      CSS.highlights.set('notes-find', new Highlight(range));
+    }
+  } catch (err) {}
+  if (focus) {
+    if (sel && sel.removeAllRanges) sel.removeAllRanges();
+    if (sel && sel.addRange) sel.addRange(range);
+  }
+  var mark = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
+  var y = mark && mark.getBoundingClientRect ? mark.getBoundingClientRect().top : 0;
+  reply(count, active, y);
 }`
 }
 

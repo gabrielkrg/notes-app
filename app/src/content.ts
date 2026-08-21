@@ -19,6 +19,7 @@ export {
   firstPageRoute,
   hoistNavRoot,
   hrefForNode,
+  compareNavNodes,
   overviewNodes,
   flattenPages,
   GRAPH_ROUTE,

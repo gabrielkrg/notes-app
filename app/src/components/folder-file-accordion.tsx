@@ -5,7 +5,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { hrefForNode, type NavDirNode, type NavNode } from '@/content.ts'
+import { compareNavNodes, hrefForNode, type NavDirNode } from '@/content.ts'
 
 export function FolderFileAccordion({
   folder,
@@ -28,7 +28,7 @@ export function FolderFileAccordion({
       </CollapsibleTrigger>
       <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
         <ul className="grid gap-0.5 border-t px-2 py-2">
-          {children.map((node) => {
+          {[...children].sort(compareNavNodes).map((node) => {
             const href = hrefForNode(node)
             return (
               <li key={node.id}>

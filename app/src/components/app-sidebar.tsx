@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Network,
   Paperclip,
+  Pencil,
   Trash2,
 } from 'lucide-react'
 
@@ -44,14 +45,19 @@ import {
 } from '@/components/ui/sidebar'
 import { ShortcutHint } from '@/components/search-command'
 import { GithubMark } from '@/components/github-mark.tsx'
-import { GRAPH_ROUTE, hrefForNode, isGraphRoute, type NavDirNode, type NavNode, type NavPageNode } from '@/content.ts'
+import { GRAPH_ROUTE, hrefForNode, isGraphRoute, compareNavNodes, type NavDirNode, type NavNode, type NavPageNode } from '@/content.ts'
 import { isGithubVirtualPath } from '@/lib/github-notes.ts'
 import { attachedRootForDir } from '@/lib/notes-roots.ts'
 import { depthPad, treeLine } from '@/lib/sidebar-tree.ts'
 import type { DeleteTarget } from '@/lib/note-delete.ts'
 import type { NoteKind } from '@/lib/note-name.ts'
+import type { RenameTarget } from '@/lib/note-rename.ts'
 
 type CreateRequest = { kind: NoteKind; parent: string }
+
+function menuNodes(nodes: NavNode[]) {
+  return [...nodes].sort(compareNavNodes)
+}
 
 function dirOpenId(nodes: NavNode[], route: string) {
   return (
@@ -92,18 +98,20 @@ function TreeTwist({ open = false, expandable }: { open?: boolean; expandable: b
 
 function ItemMenu({
   onCreate,
+  onRename,
   onDelete,
   onRemove,
   deleteLabel,
   children,
 }: {
   onCreate?: (kind: NoteKind) => void
+  onRename?: () => void
   onDelete?: () => void
   onRemove?: () => void
   deleteLabel?: string
   children: ReactNode
 }) {
-  const hasMenu = onCreate || onDelete || onRemove
+  const hasMenu = onCreate || onRename || onDelete || onRemove
   if (!hasMenu) return children
 
   return (
@@ -124,7 +132,13 @@ function ItemMenu({
             </ContextMenuItem>
           </>
         )}
-        {onCreate && (onRemove || onDelete) && <ContextMenuSeparator />}
+        {onRename && (
+          <ContextMenuItem onSelect={onRename}>
+            <Pencil />
+            Rename
+          </ContextMenuItem>
+        )}
+        {(onCreate || onRename) && (onRemove || onDelete) && <ContextMenuSeparator />}
         {onRemove && (
           <ContextMenuItem onSelect={onRemove}>
             <FolderMinus />
@@ -156,6 +170,7 @@ export function AppSidebar({
   githubLabels = [],
   onCreate,
   onDelete,
+  onRename,
   onRemoveRoot,
 }: {
   tree: NavNode[]
@@ -170,6 +185,7 @@ export function AppSidebar({
   githubLabels?: string[]
   onCreate?: (next: CreateRequest) => void
   onDelete?: (target: DeleteTarget) => void
+  onRename?: (target: RenameTarget) => void
   onRemoveRoot?: (dir: string) => void
 }) {
   const [openId, setOpenId] = useAccordion(tree, route)
@@ -179,7 +195,7 @@ export function AppSidebar({
       <SidebarGroupLabel>Folders</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu className="gap-0.5">
-          {tree.map((node) => (
+          {menuNodes(tree).map((node) => (
             <NavNode
               key={node.id}
               node={node}
@@ -190,6 +206,7 @@ export function AppSidebar({
               canCreate={canCreate}
               onCreate={onCreate}
               onDelete={onDelete}
+              onRename={onRename}
               onRemoveRoot={onRemoveRoot}
               roots={roots}
               githubLabels={githubLabels}
@@ -302,11 +319,13 @@ function CreateRootButton({
   label,
   disabled,
   onClick,
+  shortcut,
   children,
 }: {
   label: string
   disabled: boolean
   onClick: () => void
+  shortcut?: string
   children: ReactNode
 }) {
   const button = (
@@ -332,7 +351,14 @@ function CreateRootButton({
         {disabled ? <span className="inline-flex">{button}</span> : button}
       </TooltipTrigger>
       <TooltipContent>
-        {disabled ? 'Set a default notes folder in Settings' : label}
+        {disabled ? (
+          'Set a default notes folder in Settings'
+        ) : (
+          <>
+            {label}
+            {shortcut ? <ShortcutHint keyLabel={shortcut} /> : null}
+          </>
+        )}
       </TooltipContent>
     </Tooltip>
   )
@@ -349,6 +375,7 @@ function NavNode({
   canCreate,
   onCreate,
   onDelete,
+  onRename,
   onRemoveRoot,
   roots = [],
   githubLabels = [],
@@ -363,6 +390,7 @@ function NavNode({
   canCreate?: boolean
   onCreate?: (next: CreateRequest) => void
   onDelete?: (target: DeleteTarget) => void
+  onRename?: (target: RenameTarget) => void
   onRemoveRoot?: (dir: string) => void
   roots?: string[]
   githubLabels?: string[]
@@ -376,6 +404,7 @@ function NavNode({
         done={done}
         onGo={onGo}
         onDelete={onDelete}
+        onRename={onRename}
       />
     )
   }
@@ -392,6 +421,7 @@ function NavNode({
       canCreate={canCreate}
       onCreate={onCreate}
       onDelete={onDelete}
+      onRename={onRename}
       onRemoveRoot={onRemoveRoot}
       roots={roots}
       githubLabels={githubLabels}
@@ -410,6 +440,7 @@ function FolderNode({
   canCreate,
   onCreate,
   onDelete,
+  onRename,
   onRemoveRoot,
   roots = [],
   githubLabels = [],
@@ -424,6 +455,7 @@ function FolderNode({
   canCreate?: boolean
   onCreate?: (next: CreateRequest) => void
   onDelete?: (target: DeleteTarget) => void
+  onRename?: (target: RenameTarget) => void
   onRemoveRoot?: (dir: string) => void
   roots?: string[]
   githubLabels?: string[]
@@ -436,6 +468,7 @@ function FolderNode({
   const [childOpenId, setChildOpenId] = useAccordion(children, route)
   const attachedRoot = depth === 0 ? attachedRootForDir(roots, node.path) : null
   const canDeleteFolder = Boolean(onDelete) && !githubLocked && !attachedRoot
+  const canRenameFolder = Boolean(onRename) && !githubLocked && !attachedRoot
   const canRemoveRoot = Boolean(onRemoveRoot && attachedRoot)
 
   function handleOpenChange(next: boolean) {
@@ -462,7 +495,7 @@ function FolderNode({
   const nested = children.length > 0 && (
     <CollapsibleContent className={treeLine(depth)}>
       <SidebarMenu className="mt-0.5 gap-0.5 group-data-[collapsible=icon]:hidden">
-        {children.map((child) => (
+        {menuNodes(children).map((child) => (
           <NavNode
             key={child.id}
             node={child}
@@ -473,6 +506,7 @@ function FolderNode({
             canCreate={canCreate}
             onCreate={onCreate}
             onDelete={onDelete}
+            onRename={onRename}
             onRemoveRoot={onRemoveRoot}
             roots={roots}
             githubLabels={githubLabels}
@@ -490,6 +524,16 @@ function FolderNode({
         <ItemMenu
           onCreate={
             canCreate && !githubLocked ? (kind: NoteKind) => onCreate?.({ kind, parent: node.path }) : undefined
+          }
+          onRename={
+            canRenameFolder && onRename
+              ? () =>
+                  onRename({
+                    kind: 'folder',
+                    name: node.label,
+                    path: node.path,
+                  })
+              : undefined
           }
           onRemove={attachedRoot && onRemoveRoot ? () => onRemoveRoot(attachedRoot) : undefined}
           onDelete={
@@ -527,6 +571,7 @@ function PageLink({
   done,
   onGo,
   onDelete,
+  onRename,
 }: {
   node: NavPageNode
   depth: number
@@ -534,6 +579,7 @@ function PageLink({
   done: Set<string>
   onGo: (route: string) => void
   onDelete?: (target: DeleteTarget) => void
+  onRename?: (target: RenameTarget) => void
 }) {
   const page = node.page
   const active = route === page.route
@@ -556,6 +602,11 @@ function PageLink({
   return (
     <SidebarMenuItem>
       <ItemMenu
+        onRename={
+          onRename && !page.readonly
+            ? () => onRename({ kind: 'note', name: node.label, file: page.file })
+            : undefined
+        }
         onDelete={
           onDelete && !page.readonly
             ? () => onDelete({ kind: 'note', name: node.label, file: page.file })

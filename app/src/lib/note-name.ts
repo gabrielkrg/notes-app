@@ -15,7 +15,8 @@ export function isNoteFile(file: string): boolean {
 }
 
 export type NoteKind = 'note' | 'folder'
-export type NoteFileType = 'markdown' | 'html' | 'css' | 'js'
+export type NoteFileType = 'markdown' | 'text' | 'html' | 'css' | 'js'
+export type CodeFileType = Exclude<NoteFileType, 'markdown' | 'text'>
 
 export type NoteFileFromNameOptions = {
   parent?: string
@@ -25,6 +26,7 @@ export type NoteFileFromNameOptions = {
 
 export function fileKind(file: string): NoteFileType {
   const name = String(file || '')
+  if (/\.txt$/i.test(name)) return 'text'
   if (/\.html$/i.test(name)) return 'html'
   if (/\.css$/i.test(name)) return 'css'
   if (/\.js$/i.test(name)) return 'js'
@@ -33,11 +35,12 @@ export function fileKind(file: string): NoteFileType {
 
 export function parseNoteFileType(value: unknown): NoteFileType {
   if (value == null || value === '') return 'markdown'
-  if (value === 'markdown' || value === 'html' || value === 'css' || value === 'js') return value
+  if (value === 'markdown' || value === 'text' || value === 'html' || value === 'css' || value === 'js') return value
   throw new Error('Unknown note type')
 }
 
 function extensionForType(type: NoteFileType): string {
+  if (type === 'text') return 'txt'
   if (type === 'html') return 'html'
   if (type === 'css') return 'css'
   if (type === 'js') return 'js'
@@ -52,6 +55,17 @@ export function noteFileFromName(name: string, { parent = '', kind = 'note', typ
   }
   const ext = extensionForType(type)
   return dir ? `${dir}/${slug}.${ext}` : `${slug}.${ext}`
+}
+
+export function nextUntitledName(
+  isTaken: (file: string) => boolean,
+  options: NoteFileFromNameOptions = {},
+): string {
+  for (let n = 1; n < 10_000; n++) {
+    const name = n === 1 ? 'Untitled' : `Untitled ${n}`
+    if (!isTaken(noteFileFromName(name, options))) return name
+  }
+  throw new Error('Could not find an unused Untitled name')
 }
 
 function yamlString(value: string): string {
@@ -99,9 +113,15 @@ export function starterJs({ title }: { title: string }): string {
 `
 }
 
+export function starterText({ title }: { title: string }): string {
+  const heading = String(title || '').trim() || 'Untitled'
+  return `${heading}\n\n`
+}
+
 export function starterForType(type: NoteFileType, title: string): string {
   if (type === 'html') return starterHtml({ title })
   if (type === 'css') return starterCss({ title })
   if (type === 'js') return starterJs({ title })
+  if (type === 'text') return starterText({ title })
   return starterMarkdown({ title })
 }

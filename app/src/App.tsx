@@ -21,6 +21,7 @@ import { GlobalGraph } from '@/components/global-graph'
 import { FolderFileAccordion } from '@/components/folder-file-accordion'
 import { CreateNoteDialog } from '@/components/create-note-dialog'
 import { DeleteNoteDialog } from '@/components/delete-note-dialog'
+import { RenameNoteDialog } from '@/components/rename-note-dialog'
 import { SettingsDialog } from '@/components/settings-dialog'
 import {
   Breadcrumb,
@@ -46,7 +47,9 @@ import {
 } from '@/components/ui/sidebar'
 import { NoteEditor, type NoteEditorHandle } from '@/components/note-editor'
 import { CodeEditor, type CodeEditorHandle } from '@/components/code-editor'
-import { HtmlPreview } from '@/components/html-preview'
+import { PlainText, type PlainTextHandle } from '@/components/plain-text'
+import { FindBar } from '@/components/find-bar'
+import { HtmlPreview, type HtmlPreviewHandle } from '@/components/html-preview'
 import { SearchCommand, SearchTrigger } from '@/components/search-command'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { WindowControls } from '@/components/window-controls'
@@ -58,10 +61,20 @@ import { isDesktop } from '@/lib/desktop'
 import type { CreatedNote } from '@/lib/desktop.ts'
 import { fetchBrowserGithubNotes } from '@/lib/github-client.ts'
 import { isGithubVirtualPath, topLevelLabels } from '@/lib/github-notes.ts'
-import { CtrlKChord } from '@/lib/key-chords'
-import { labelForRoot, labelNotesRoots } from '@/lib/notes-roots.ts'
+import { CtrlKChord, isNewNoteShortcut } from '@/lib/key-chords'
+import { clearFindHighlight, collectText, revealInElement } from '@/lib/find-dom.ts'
+import {
+  isFindNextShortcut,
+  isFindPrevShortcut,
+  isFindShortcut,
+  runFind,
+  stepFindIndex,
+  type FindResult,
+} from '@/lib/find-in-page.ts'
+import { attachedRootForDir, labelForRoot, labelNotesRoots } from '@/lib/notes-roots.ts'
 import type { DeleteTarget } from '@/lib/note-delete.ts'
 import type { NoteKind } from '@/lib/note-name.ts'
+import type { RenameTarget } from '@/lib/note-rename.ts'
 import { fileKind } from '@/lib/note-name.ts'
 import MarkdownView from './MarkdownView.tsx'
 import {
@@ -91,6 +104,7 @@ import {
 
 type CreateState = { kind: NoteKind; parent: string }
 
+const PAGE_SHELL = 'mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8'
 const DONE_KEY = storageKey('done')
 const LAST_KEY = storageKey('last')
 
@@ -136,13 +150,14 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [createState, setCreateState] = useState<CreateState | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
+  const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState<Set<string>>(loadDone)
   const contentRef = useRef<HTMLDivElement>(null)
-  const editorRef = useRef<NoteEditorHandle | CodeEditorHandle | null>(null)
+  const editorRef = useRef<NoteEditorHandle | CodeEditorHandle | PlainTextHandle | null>(null)
   const chordRef = useRef<CtrlKChord | null>(null)
   if (!chordRef.current) chordRef.current = new CtrlKChord()
 
@@ -237,6 +252,11 @@ export default function App() {
         saveDraft()
         return
       }
+      if (desktop && canCreateAtRoot && isNewNoteShortcut(event)) {
+        event.preventDefault()
+        createQuickNote()
+        return
+      }
       if (desktop) {
         const handled = chordRef.current?.handle(event, {
           searchOpen,
@@ -260,7 +280,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [prev, next, editing, draft, page, desktop, searchOpen])
+  }, [prev, next, editing, draft, page, desktop, searchOpen, canCreateAtRoot, defaultLabel])
 
   useEffect(() => {
     return () => chordRef.current?.dispose()
@@ -363,9 +383,48 @@ function startEditing() {
     setEditing(true)
   }
 
+  async function createQuickNote() {
+    if (!window.desktop?.createNote) return
+    if (!confirmLeave()) return
+    try {
+      const created = await window.desktop.createNote({
+        parent: defaultLabel,
+        type: 'markdown',
+      })
+      await handleCreated(created)
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Could not create that note')
+    }
+  }
+
   function requestDelete(target: DeleteTarget) {
     if (!confirmLeave()) return
     setDeleteTarget(target)
+  }
+
+  function requestRename(target: RenameTarget) {
+    if (!confirmLeave()) return
+    setRenameTarget(target)
+  }
+
+  async function handleRenamed(target: RenameTarget, result: { file?: string; path?: string }) {
+    setEditing(false)
+    setDirty(false)
+    await reloadNotes()
+    if (target.kind === 'note' && result.file && page?.file === target.file) {
+      const nextRoute = routeFor(result.file)
+      setHash(nextRoute)
+      setRoute(nextRoute)
+    } else if (
+      target.kind === 'folder' &&
+      result.path &&
+      (route === target.path || route.startsWith(`${target.path}/`))
+    ) {
+      const nextRoute = `${result.path}${route.slice(target.path.length)}`
+      setHash(nextRoute)
+      setRoute(nextRoute)
+    }
+    setRenameTarget(null)
   }
 
   async function handleDeleted(target: DeleteTarget) {
@@ -525,6 +584,15 @@ function startEditing() {
                   }
                 : undefined
             }
+            onRename={
+              desktop
+                ? (target: RenameTarget) => {
+                    const targetPath = target.kind === 'folder' ? target.path : target.file
+                    if (isGithubVirtualPath(targetPath, content.githubLabels)) return
+                    requestRename(target)
+                  }
+                : undefined
+            }
             onRemoveRoot={desktop ? removeNotesFolder : undefined}
           />
           <SidebarInset className="min-h-0 overflow-hidden">
@@ -536,11 +604,11 @@ function startEditing() {
                 {showingGraph ? (
                   <GlobalGraph pages={content.pages} onGo={go} />
                 ) : loading ? (
-                  <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-6 py-10">
+                  <div className={PAGE_SHELL}>
                     <p className="text-sm text-muted-foreground">Loading notes…</p>
                   </div>
                 ) : loadError ? (
-                  <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-6 py-10">
+                  <div className={PAGE_SHELL}>
                     <p className="text-sm text-destructive">{loadError}</p>
                     <p className="text-sm text-muted-foreground">
                       Open Settings and point the app at a smaller folder of notes.
@@ -608,16 +676,34 @@ function startEditing() {
                           }
                         : undefined
                     }
+                    onRename={
+                      desktop &&
+                      !page.readonly &&
+                      !(
+                        page.isIndex &&
+                        attachedRootForDir(roots, dirForIndex(tree, page)?.path || page.route)
+                      )
+                        ? () => {
+                            if (page.isIndex) {
+                              const currentFolder = dirForIndex(tree, page)
+                              requestRename({
+                                kind: 'folder',
+                                name: currentFolder?.label || page.title,
+                                path: currentFolder?.path || page.route,
+                              })
+                              return
+                            }
+                            requestRename({
+                              kind: 'note',
+                              name: page.navLabel || page.title,
+                              file: page.file,
+                            })
+                          }
+                        : undefined
+                    }
                   />
                 )}
               </div>
-              {page && page.cue.length > 0 && !editing && fileKind(page.file) === 'markdown' && (
-                <aside className="hidden w-72 shrink-0 overflow-auto border-l xl:block">
-                  <div className="sticky top-0 p-4">
-                    <CuePanel cues={page.cue} />
-                  </div>
-                </aside>
-              )}
             </div>
           </SidebarInset>
           </div>
@@ -656,6 +742,14 @@ function startEditing() {
             target={deleteTarget}
             onDeleted={handleDeleted}
           />
+          <RenameNoteDialog
+            open={Boolean(renameTarget)}
+            onOpenChange={(open: boolean) => {
+              if (!open) setRenameTarget(null)
+            }}
+            target={renameTarget}
+            onRenamed={handleRenamed}
+          />
         </SidebarProvider>
         </TooltipProvider>
       </HighlightProvider>
@@ -689,12 +783,12 @@ function Dashboard({
   const isGithubRepo = Boolean(folder && githubLabels.includes(folder.path))
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-10">
-      <header className="grid gap-3">
+    <div className={PAGE_SHELL}>
+      <header className="grid gap-2">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           {folder ? (isGithubRepo ? 'Repo' : 'Folder') : 'Keep the markdown. Read and write it here.'}
         </p>
-        <h1 className="flex items-center gap-3 font-heading text-3xl font-medium tracking-tight sm:text-4xl">
+        <h1 className="flex items-center gap-3 font-heading text-3xl font-medium tracking-tight">
           {folder ? folder.label : 'Notes stay files. This is the desk.'}
           {isGithubRepo ? <GithubMark className="size-6 shrink-0 text-muted-foreground" /> : null}
         </h1>
@@ -716,32 +810,14 @@ function Dashboard({
 
       <div className="grid gap-3 sm:grid-cols-2">
         {nodes.map((node) => {
-          if (node.type === 'page') {
-            return (
-              <Card key={node.id} className="h-full p-0">
-                <button
-                  type="button"
-                  className="flex h-full w-full flex-col text-left transition-colors hover:bg-muted/40"
-                  onClick={() => onOpen(node.page.route)}
-                >
-                  <CardHeader className="flex-1 p-5">
-                    <div className="flex items-start gap-2.5">
-                      <FileText aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                      <div className="grid min-w-0 gap-1">
-                        <CardTitle>{node.label}</CardTitle>
-                        <CardDescription>{node.page.blurb}</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                </button>
-              </Card>
-            )
-          }
-
-          const count = countTopicPages(node)
-          const marked = countMarked(node, done)
           const href = hrefForNode(node)
-          const isGithubRoot = githubLabels.includes(node.path)
+          const isDir = node.type === 'dir'
+          const preview = isDir ? node.focus : node.page.blurb
+          const count = isDir ? countTopicPages(node) : 0
+          const marked = isDir ? countMarked(node, done) : 0
+          const isGithubRoot = isDir && githubLabels.includes(node.path)
+          const fileRead = !isDir && done.has(node.page.file)
+
           return (
             <Card key={node.id} className="h-full p-0">
               <button
@@ -749,23 +825,38 @@ function Dashboard({
                 className="flex h-full w-full flex-col text-left transition-colors hover:bg-muted/40"
                 onClick={() => href && onOpen(href)}
               >
-                <CardHeader className="flex-1 p-5">
-                  <div className="flex items-start gap-2.5">
-                    <Folder aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                    <div className="grid min-w-0 gap-1">
-                      <CardTitle className="flex items-center gap-2">
-                        <span className="min-w-0 truncate">{node.label}</span>
+                <CardHeader className="p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="grid min-w-0 flex-1 gap-1">
+                      <CardTitle className="flex min-w-0 items-center gap-2">
+                        <span className="min-w-0 line-clamp-2">{node.label}</span>
                         {isGithubRoot ? (
                           <GithubMark className="size-3.5 shrink-0 text-muted-foreground" />
                         ) : null}
                       </CardTitle>
-                      <CardDescription>{node.focus}</CardDescription>
+                      {preview ? (
+                        <CardDescription className="line-clamp-2">{preview}</CardDescription>
+                      ) : null}
                     </div>
+                    {isDir ? (
+                      <Folder aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <FileText aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    )}
                   </div>
                 </CardHeader>
                 <CardFooter className="mt-auto px-5 py-3 text-xs text-muted-foreground">
-                  {count} {count === 1 ? 'file' : 'files'}
-                  {marked > 0 ? ` · ${marked} read` : ''}
+                  {isDir ? (
+                    <>
+                      {count} {count === 1 ? 'file' : 'files'}
+                      {marked > 0 ? ` · ${marked} read` : ''}
+                    </>
+                  ) : (
+                    <>
+                      {fileKindLabel(node.page.file)}
+                      {fileRead ? ' · Read' : ''}
+                    </>
+                  )}
                 </CardFooter>
               </button>
             </Card>
@@ -784,6 +875,15 @@ function Dashboard({
 function countMarked(node: NavNode, done: Set<string>): number {
   if (node.type === 'page') return done.has(node.page.file) ? 1 : 0
   return (node.children || []).reduce((sum, child) => sum + countMarked(child, done), 0)
+}
+
+function fileKindLabel(file: string): string {
+  if (/\.txt$/i.test(file)) return 'Text'
+  if (/\.html$/i.test(file)) return 'HTML'
+  if (/\.css$/i.test(file)) return 'CSS'
+  if (/\.js$/i.test(file)) return 'JavaScript'
+  if (/\.md$/i.test(file)) return 'Markdown'
+  return 'File'
 }
 
 function CuePanel({ cues }: { cues: string[] }) {
@@ -829,6 +929,7 @@ function Article({
   editorRef,
   onSave,
   onDelete,
+  onRename,
 }: {
   page: NotePage
   files: Record<string, string>
@@ -847,21 +948,148 @@ function Article({
   onDraftChange: (value: string) => void
   onEdit: () => void
   onCancel: () => void
-  editorRef: RefObject<NoteEditorHandle | CodeEditorHandle | null>
+  editorRef: RefObject<NoteEditorHandle | CodeEditorHandle | PlainTextHandle | null>
   onSave: () => void
   onDelete?: () => void
+  onRename?: () => void
 }) {
   const kind = fileKind(page.file)
   const markdown = kind === 'markdown'
+  const htmlPreviewRef = useRef<HtmlPreviewHandle>(null)
+  const viewFindRef = useRef<CodeEditorHandle | PlainTextHandle | null>(null)
+  const viewRootRef = useRef<HTMLDivElement>(null)
+  const [findOpen, setFindOpen] = useState(false)
+  const [findQuery, setFindQuery] = useState('')
+  const [findFocus, setFindFocus] = useState(0)
+  const [findResult, setFindResult] = useState<FindResult>({ count: 0, index: -1 })
+  const findQueryRef = useRef(findQuery)
+  const findResultRef = useRef(findResult)
+  const findInputRef = useRef<HTMLInputElement>(null)
+  const findRevealedRef = useRef(false)
+  findQueryRef.current = findQuery
+  findResultRef.current = findResult
+
+  function restoreFindFocus(input: HTMLInputElement | null, start?: number | null, end?: number | null) {
+    if (!input?.isConnected) return
+    const apply = () => {
+      if (!input.isConnected) return
+      input.focus({ preventScroll: true })
+      if (start != null && end != null) input.setSelectionRange(start, end)
+    }
+    apply()
+    requestAnimationFrame(apply)
+  }
+
+  function closeFind() {
+    setFindOpen(false)
+    findRevealedRef.current = false
+    clearFindHighlight()
+  }
+
+  async function performFind(query: string, index: number, reveal = true) {
+    const input = findInputRef.current
+    const caretStart = input?.selectionStart
+    const caretEnd = input?.selectionEnd
+    try {
+      if (!editing && kind === 'html') {
+        const result = await htmlPreviewRef.current?.search(query, index, { reveal, focus: false })
+        setFindResult(result || { count: 0, index: -1 })
+        if (reveal) findRevealedRef.current = true
+        return
+      }
+      const handle = editing ? editorRef.current : viewFindRef.current
+      const text = handle?.findText() || (viewRootRef.current ? collectText(viewRootRef.current) : '')
+      const { matches, count, index: active } = runFind(text, query, index)
+      if (!count || active < 0) clearFindHighlight()
+      if (reveal && active >= 0 && matches[active]) {
+        if (handle) handle.revealMatch(matches[active], { focus: false })
+        else if (viewRootRef.current) revealInElement(viewRootRef.current, matches[active], { focus: false })
+        findRevealedRef.current = true
+      }
+      setFindResult({ count, index: active })
+    } finally {
+      if (reveal) restoreFindFocus(input, caretStart, caretEnd)
+    }
+  }
+
+  function stepFind(direction: 1 | -1) {
+    const index = stepFindIndex(findResultRef.current.index, direction, findRevealedRef.current)
+    void performFind(findQueryRef.current, index, true)
+  }
+
+  useEffect(() => {
+    if (!findOpen) return
+    findRevealedRef.current = false
+    void performFind(findQuery, 0, false)
+  }, [findOpen, findQuery, page.file, editing, kind])
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.target instanceof Element && event.target.closest('[role="dialog"]')) return
+      if (isFindShortcut(event)) {
+        event.preventDefault()
+        event.stopPropagation()
+        setFindOpen(true)
+        setFindFocus((token) => token + 1)
+        return
+      }
+      if (!findOpen) return
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeFind()
+        return
+      }
+      if (isFindNextShortcut(event)) {
+        event.preventDefault()
+        stepFind(1)
+        return
+      }
+      if (isFindPrevShortcut(event)) {
+        event.preventDefault()
+        stepFind(-1)
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [findOpen, page.file, editing, kind])
+
   return (
-    <article className={`mx-auto flex w-full flex-col gap-6 px-6 py-8 ${kind === 'html' ? 'max-w-5xl' : 'max-w-3xl'}`}>
+    <article className={PAGE_SHELL}>
+      {findOpen ? (
+        <FindBar
+          query={findQuery}
+          result={findResult}
+          focusToken={findFocus}
+          inputRef={findInputRef}
+          onQueryChange={setFindQuery}
+          onNext={() => stepFind(1)}
+          onPrev={() => stepFind(-1)}
+          onClose={closeFind}
+        />
+      ) : null}
       <header className="grid gap-2">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           {section?.label || 'Notes'}
         </p>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="font-heading text-3xl font-medium tracking-tight">
-            {page.title}
+            {onRename ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onRename}
+                    className="text-left underline-offset-4 hover:underline"
+                    aria-label={`Rename ${page.title}`}
+                  >
+                    {page.title}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Rename</TooltipContent>
+              </Tooltip>
+            ) : (
+              page.title
+            )}
             {dirty ? <span className="ml-2 text-base text-muted-foreground">edited</span> : null}
           </h1>
           <div className="flex flex-wrap gap-2">
@@ -925,15 +1153,18 @@ function Article({
         )}
       </header>
 
-      {!editing && markdown && (
-        <div className="xl:hidden">
-          <CuePanel cues={page.cue} />
-        </div>
-      )}
+      {!editing && markdown && <CuePanel cues={page.cue} />}
 
       {editing ? (
         kind === 'markdown' ? (
           <NoteEditor
+            key={page.file}
+            ref={editorRef}
+            value={draft}
+            onChange={onDraftChange}
+          />
+        ) : kind === 'text' ? (
+          <PlainText
             key={page.file}
             ref={editorRef}
             value={draft}
@@ -949,12 +1180,16 @@ function Article({
           />
         )
       ) : kind === 'html' ? (
-        <HtmlPreview file={page.file} html={page.raw} files={files} title={page.title} />
+        <HtmlPreview ref={htmlPreviewRef} file={page.file} html={page.raw} files={files} title={page.title} />
       ) : kind === 'css' || kind === 'js' ? (
-        <CodeEditor key={page.file} kind={kind} value={page.raw} readOnly />
+        <CodeEditor key={page.file} ref={viewFindRef} kind={kind} value={page.raw} readOnly />
       ) : (
-        <div className="typeset typeset-docs max-w-[37em]">
-          <MarkdownView key={page.file} page={page} onNavigate={onGo} />
+        <div ref={viewRootRef} className="typeset typeset-docs w-full">
+          {kind === 'text' ? (
+            <PlainText key={page.file} ref={viewFindRef} value={page.body} readOnly />
+          ) : (
+            <MarkdownView key={page.file} page={page} onNavigate={onGo} />
+          )}
         </div>
       )}
 

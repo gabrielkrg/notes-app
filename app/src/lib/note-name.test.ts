@@ -4,6 +4,7 @@ import { describe, it } from 'node:test'
 import {
   fileKind,
   isNoteFile,
+  nextUntitledName,
   noteFileFromName,
   parseNoteFileType,
   slugifyName,
@@ -26,15 +27,32 @@ describe('slugifyName', () => {
   })
 })
 
+describe('nextUntitledName', () => {
+  it('starts at Untitled when the parent is empty', () => {
+    assert.equal(nextUntitledName(() => false), 'Untitled')
+  })
+
+  it('skips Untitled files that already exist in the parent folder', () => {
+    const taken = new Set(['php/untitled.md', 'php/untitled-2.md'])
+    assert.equal(nextUntitledName((file) => taken.has(file), { parent: 'php' }), 'Untitled 3')
+  })
+
+  it('ignores other types and other folders', () => {
+    const taken = new Set(['php/untitled.html', 'docs/untitled.md'])
+    assert.equal(nextUntitledName((file) => taken.has(file), { parent: 'php' }), 'Untitled')
+  })
+})
+
 describe('noteFileFromName', () => {
   it('creates a markdown file under the parent folder', () => {
     assert.equal(noteFileFromName('Arrays', { parent: 'php', kind: 'note' }), 'php/arrays.md')
   })
 
-  it('creates html, css, and js files from the note type', () => {
+  it('creates html, css, js, and text files from the note type', () => {
     assert.equal(noteFileFromName('Widget', { parent: 'php', type: 'html' }), 'php/widget.html')
     assert.equal(noteFileFromName('Theme', { type: 'css' }), 'theme.css')
     assert.equal(noteFileFromName('Main', { type: 'js' }), 'main.js')
+    assert.equal(noteFileFromName('Scratch', { parent: 'php', type: 'text' }), 'php/scratch.txt')
   })
 
   it('still creates a markdown index when the kind is folder', () => {
@@ -60,7 +78,7 @@ describe('isNoteFile', () => {
 describe('fileKind', () => {
   it('maps extensions to a view kind', () => {
     assert.equal(fileKind('php/arrays.md'), 'markdown')
-    assert.equal(fileKind('php/test.txt'), 'markdown')
+    assert.equal(fileKind('php/test.txt'), 'text')
     assert.equal(fileKind('php/widget.html'), 'html')
     assert.equal(fileKind('php/theme.css'), 'css')
     assert.equal(fileKind('php/main.js'), 'js')
@@ -71,6 +89,10 @@ describe('parseNoteFileType', () => {
   it('defaults omitted values to markdown', () => {
     assert.equal(parseNoteFileType(undefined), 'markdown')
     assert.equal(parseNoteFileType(''), 'markdown')
+  })
+
+  it('accepts text along with the other note types', () => {
+    assert.equal(parseNoteFileType('text'), 'text')
   })
 
   it('rejects an unknown type', () => {
@@ -98,5 +120,6 @@ describe('starters', () => {
     assert.match(starterForType('css', 'Theme'), /\/\* Theme \*\//)
     assert.match(starterForType('js', 'Main'), /\/\/ Main/)
     assert.match(starterForType('markdown', 'Queues'), /^---\n/)
+    assert.equal(starterForType('text', 'Queues'), 'Queues\n\n')
   })
 })

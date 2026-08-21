@@ -15,12 +15,14 @@ import type { NoteFileType, NoteKind } from '@/lib/note-name.ts'
 
 const NOTE_TYPES: { id: NoteFileType; label: string }[] = [
   { id: 'markdown', label: 'Markdown' },
+  { id: 'text', label: 'Text' },
   { id: 'html', label: 'HTML' },
   { id: 'css', label: 'CSS' },
   { id: 'js', label: 'JavaScript' },
 ]
 
 function typeDescription(type: NoteFileType): string {
+  if (type === 'text') return 'Creates a text file. The app shows the contents in the app font, without markdown formatting.'
   if (type === 'html') return 'Creates an HTML file. The app shows a live preview; desktop can edit the source.'
   if (type === 'css') return 'Creates a CSS file you can edit as highlighted source.'
   if (type === 'js') return 'Creates a JavaScript file you can edit as highlighted source.'
@@ -76,7 +78,7 @@ export function CreateNoteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         <form onSubmit={submit} className="grid gap-4">
           <DialogHeader>
             <DialogTitle>{isFolder ? 'New folder' : 'New note'}</DialogTitle>

@@ -20,6 +20,8 @@ import {
   listNotes,
   pickNotesFolder,
   readAsset,
+  renameFolder,
+  renameNote,
   resolveNoteFile,
   setDefaultNotesRoot,
   setGithubRemotes,
@@ -190,6 +192,8 @@ if (!gotTheLock) {
     ipcMain.handle('create-folder', wrap((opts: CreateOpts) => createFolder(repoDir, opts || {})))
     ipcMain.handle('delete-note', wrap((file: string) => deleteNote(repoDir, file)))
     ipcMain.handle('delete-folder', wrap((opts: { path?: string; confirmName?: string; expectedNames?: string[] }) => deleteFolder(repoDir, opts || {})))
+    ipcMain.handle('rename-note', wrap((opts: { file?: string; name?: string }) => renameNote(repoDir, opts || {})))
+    ipcMain.handle('rename-folder', wrap((opts: { path?: string; name?: string }) => renameFolder(repoDir, opts || {})))
     ipcMain.handle('get-notes-root', wrap(() => getNotesRoot(repoDir)))
     ipcMain.handle('get-notes-roots', wrap(() => getNotesRoots(repoDir)))
     ipcMain.handle('set-notes-root', wrap((dir: string) => setNotesRoot(dir)))

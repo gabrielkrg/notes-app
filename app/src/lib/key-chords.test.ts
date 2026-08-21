@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it, mock } from 'node:test'
 
-import { CtrlKChord } from './key-chords.ts'
+import { CtrlKChord, isNewNoteShortcut } from './key-chords.ts'
 
 function keyEvent({ key, ctrlKey = false, metaKey = false }: { key: string; ctrlKey?: boolean; metaKey?: boolean }) {
   return {
@@ -68,5 +68,17 @@ describe('CtrlKChord', () => {
     )
     assert.deepEqual(calls, ['search'])
     chord.dispose()
+  })
+})
+
+describe('isNewNoteShortcut', () => {
+  it('matches Ctrl+N and Cmd+N', () => {
+    assert.equal(isNewNoteShortcut(keyEvent({ key: 'n', ctrlKey: true })), true)
+    assert.equal(isNewNoteShortcut(keyEvent({ key: 'N', metaKey: true })), true)
+  })
+
+  it('ignores N without a modifier and other chords', () => {
+    assert.equal(isNewNoteShortcut(keyEvent({ key: 'n' })), false)
+    assert.equal(isNewNoteShortcut(keyEvent({ key: 'k', ctrlKey: true })), false)
   })
 })

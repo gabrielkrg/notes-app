@@ -65,3 +65,13 @@ export class CtrlKChord {
     this.clear()
   }
 }
+
+export function isNewNoteShortcut(event: {
+  key?: string
+  metaKey?: boolean
+  ctrlKey?: boolean
+}): boolean {
+  const mod = Boolean(event.metaKey || event.ctrlKey)
+  return mod && String(event.key || '').toLowerCase() === 'n'
+}
+

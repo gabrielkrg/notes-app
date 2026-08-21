@@ -490,7 +490,9 @@ function LibraryPane({
           <div className="grid gap-2">
             {roots.length ? (
               <ul className="grid gap-2">
-                {roots.map((root) => (
+                {[...roots]
+                  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+                  .map((root) => (
                   <li
                     key={root}
                     className="flex items-center gap-2 rounded-lg border bg-muted/20 px-2.5 py-1.5"

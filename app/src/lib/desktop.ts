@@ -1,7 +1,7 @@
 export type CreateNoteInput = {
   parent?: string
-  name: string
-  type?: 'markdown' | 'html' | 'css' | 'js'
+  name?: string
+  type?: 'markdown' | 'text' | 'html' | 'css' | 'js'
 }
 
 export type CreatedNote = {
@@ -13,6 +13,16 @@ export type DeleteFolderInput = {
   path: string
   confirmName?: string
   expectedNames?: string[]
+}
+
+export type RenameNoteInput = {
+  file: string
+  name: string
+}
+
+export type RenameFolderInput = {
+  path: string
+  name: string
 }
 
 export type GithubRemoteInput = {
@@ -56,6 +66,8 @@ export type DesktopApi = {
   createFolder(opts: CreateNoteInput): Promise<CreatedNote>
   deleteNote(file: string): Promise<{ file: string }>
   deleteFolder(opts: DeleteFolderInput): Promise<{ path: string }>
+  renameNote(opts: RenameNoteInput): Promise<{ file: string }>
+  renameFolder(opts: RenameFolderInput): Promise<{ path: string }>
   getNotesRoot(): Promise<string>
   getNotesRoots(): Promise<string[]>
   setNotesRoot(dir: string): Promise<string>
