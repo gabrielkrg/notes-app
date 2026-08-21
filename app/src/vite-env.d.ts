@@ -10,3 +10,7 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+interface Navigator {
+  readonly windowControlsOverlay?: WindowControlsOverlay
+}

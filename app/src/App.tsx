@@ -49,6 +49,7 @@ import { CodeEditor, type CodeEditorHandle } from '@/components/code-editor'
 import { HtmlPreview } from '@/components/html-preview'
 import { SearchCommand, SearchTrigger } from '@/components/search-command'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { WindowControls } from '@/components/window-controls'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { HighlightProvider } from '@/lib/highlight-provider.tsx'
 import { ThemeProvider } from '@/lib/theme'
@@ -390,39 +391,9 @@ function startEditing() {
     <ThemeProvider>
       <HighlightProvider>
         <TooltipProvider>
-        <SidebarProvider className="h-svh overflow-hidden">
-          <AppSidebar
-            tree={tree}
-            route={route}
-            done={done}
-            doneCount={doneCount}
-            topicCount={content.topicCount}
-            onGo={go}
-            canCreate={desktop}
-            canCreateAtRoot={canCreateAtRoot}
-            roots={roots}
-            githubLabels={content.githubLabels}
-            onCreate={(next: CreateState) => {
-              if (!confirmLeave()) return
-              if (isGithubVirtualPath(next.parent, content.githubLabels)) return
-              setCreateState({
-                ...next,
-                parent: next.parent || defaultLabel,
-              })
-            }}
-            onDelete={
-              desktop
-                ? (target: DeleteTarget) => {
-                    const targetPath = target.kind === 'folder' ? target.path : target.file
-                    if (isGithubVirtualPath(targetPath, content.githubLabels)) return
-                    requestDelete(target)
-                  }
-                : undefined
-            }
-            onRemoveRoot={desktop ? removeNotesFolder : undefined}
-          />
-          <SidebarInset className="min-h-0 overflow-hidden">
-            <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarProvider className="h-svh flex-col overflow-hidden">
+          <header className="titlebar relative z-20 flex shrink-0 items-stretch border-b bg-background">
+            <div className="titlebar-inner flex min-w-0 flex-1 items-center gap-2">
               <SidebarTrigger className="-ml-1" />
               <Breadcrumb className="min-w-0 flex-1">
                 <BreadcrumbList>
@@ -522,8 +493,41 @@ function startEditing() {
                 <Settings />
               </Button>
               <ThemeToggle />
-            </header>
-
+              <WindowControls />
+            </div>
+          </header>
+          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+          <AppSidebar
+            tree={tree}
+            route={route}
+            done={done}
+            doneCount={doneCount}
+            topicCount={content.topicCount}
+            onGo={go}
+            canCreate={desktop}
+            canCreateAtRoot={canCreateAtRoot}
+            roots={roots}
+            githubLabels={content.githubLabels}
+            onCreate={(next: CreateState) => {
+              if (!confirmLeave()) return
+              if (isGithubVirtualPath(next.parent, content.githubLabels)) return
+              setCreateState({
+                ...next,
+                parent: next.parent || defaultLabel,
+              })
+            }}
+            onDelete={
+              desktop
+                ? (target: DeleteTarget) => {
+                    const targetPath = target.kind === 'folder' ? target.path : target.file
+                    if (isGithubVirtualPath(targetPath, content.githubLabels)) return
+                    requestDelete(target)
+                  }
+                : undefined
+            }
+            onRemoveRoot={desktop ? removeNotesFolder : undefined}
+          />
+          <SidebarInset className="min-h-0 overflow-hidden">
             <div className="flex min-h-0 flex-1">
               <div
                 ref={contentRef}
@@ -616,6 +620,7 @@ function startEditing() {
               )}
             </div>
           </SidebarInset>
+          </div>
           <SearchCommand
             open={searchOpen}
             onOpenChange={setSearchOpen}

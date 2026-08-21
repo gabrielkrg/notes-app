@@ -67,6 +67,7 @@
 
 :root {
     color-scheme: light;
+    --titlebar-height: 3.5rem;
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -208,6 +209,29 @@
 
 ::selection {
   background-color: color-mix(in oklch, var(--highlight) 42%, transparent);
+}
+
+.titlebar {
+  height: var(--titlebar-height);
+  app-region: drag;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.titlebar-inner {
+  box-sizing: border-box;
+  padding-left: max(1rem, env(titlebar-area-x, 0px));
+  padding-right: max(1rem, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)));
+}
+
+.titlebar :is(a, button, input, [role='button'], [role='combobox']) {
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-controls {
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
 }
 
 .ann-mark,

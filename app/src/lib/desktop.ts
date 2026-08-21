@@ -35,7 +35,19 @@ export type AssetResult = {
   dataUrl: string
 }
 
+export type TitleBarOverlayInput = {
+  color: string
+  symbolColor: string
+}
+
 export type DesktopApi = {
+  platform: string
+  setTitleBarOverlay(overlay: TitleBarOverlayInput): Promise<void>
+  minimizeWindow(): Promise<void>
+  toggleMaximizeWindow(): Promise<void>
+  closeWindow(): Promise<void>
+  isMaximized(): Promise<boolean>
+  onMaximizeChange(cb: (maximized: boolean) => void): () => void
   openNote(file: string): Promise<void>
   listNotes(): Promise<NotesSnapshot>
   writeNote(file: string, content: string): Promise<{ file: string }>

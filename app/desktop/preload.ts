@@ -3,6 +3,18 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { CreateNoteInput, DeleteFolderInput, GithubRemoteInput } from '../src/lib/desktop.ts'
 
 contextBridge.exposeInMainWorld('desktop', {
+  platform: process.platform,
+  setTitleBarOverlay: (overlay: { color: string; symbolColor: string }) =>
+    ipcRenderer.invoke('set-title-bar-overlay', overlay),
+  minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
+  toggleMaximizeWindow: () => ipcRenderer.invoke('window-toggle-maximize'),
+  closeWindow: () => ipcRenderer.invoke('window-close'),
+  isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  onMaximizeChange: (cb: (maximized: boolean) => void) => {
+    const listener = (_event: unknown, maximized: boolean) => cb(Boolean(maximized))
+    ipcRenderer.on('window-maximize-changed', listener)
+    return () => ipcRenderer.removeListener('window-maximize-changed', listener)
+  },
   openNote: (file: string) => ipcRenderer.invoke('open-note', file),
   listNotes: () => ipcRenderer.invoke('list-notes'),
   writeNote: (file: string, content: string) => ipcRenderer.invoke('write-note', file, content),
