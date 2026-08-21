@@ -21,5 +21,8 @@
     "electron@41.10.6": true,
     "electron-winstaller@5.4.0": true,
     "esbuild@0.28.2": true
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0"
   }
 }

@@ -13,12 +13,12 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "node --test src/lib/*.test.ts src/content-core.test.ts src/annotations.test.ts",
-    "desktop": "env -u ELECTRON_RUN_AS_NODE ELECTRON=1 vite --config desktop/vite.config.ts",
-    "desktop:pack": "tsc --noEmit && ELECTRON=1 vite build --config desktop/vite.config.ts",
-    "desktop:build": "npm run desktop:pack && env -u ELECTRON_RUN_AS_NODE electron-builder --linux AppImage",
-    "desktop:build:linux": "npm run desktop:pack && env -u ELECTRON_RUN_AS_NODE electron-builder --linux AppImage",
-    "desktop:build:win": "npm run desktop:pack && env -u ELECTRON_RUN_AS_NODE electron-builder --win nsis",
-    "desktop:build:mac": "npm run desktop:pack && env -u ELECTRON_RUN_AS_NODE electron-builder --mac dmg"
+    "desktop": "cross-env ELECTRON=1 node ./scripts/run-unset-env.mjs ELECTRON_RUN_AS_NODE -- vite --config desktop/vite.config.ts",
+    "desktop:pack": "tsc --noEmit && cross-env ELECTRON=1 vite build --config desktop/vite.config.ts",
+    "desktop:build": "npm run desktop:pack && node ./scripts/run-unset-env.mjs ELECTRON_RUN_AS_NODE -- electron-builder --linux AppImage",
+    "desktop:build:linux": "npm run desktop:pack && node ./scripts/run-unset-env.mjs ELECTRON_RUN_AS_NODE -- electron-builder --linux AppImage",
+    "desktop:build:win": "npm run desktop:pack && node ./scripts/run-unset-env.mjs ELECTRON_RUN_AS_NODE -- electron-builder --win nsis",
+    "desktop:build:mac": "npm run desktop:pack && node ./scripts/run-unset-env.mjs ELECTRON_RUN_AS_NODE -- electron-builder --mac dmg"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
