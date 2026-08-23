@@ -20,6 +20,7 @@ import {
   type GithubLibraryState,
 } from '@/lib/github-client.ts'
 import type { GithubRemote } from '@/lib/github-notes.ts'
+import { FontSizePicker, PalettePicker } from '@/components/appearance-controls.tsx'
 import { HIGHLIGHT_COLORS } from '@/lib/highlight.ts'
 import { useHighlight } from '@/lib/highlight-provider.tsx'
 import { useTheme, type Theme } from '@/lib/theme'
@@ -37,7 +38,21 @@ const SECTIONS: {
     id: 'general',
     label: 'General',
     icon: SlidersHorizontal,
-    keywords: ['appearance', 'theme', 'highlight', 'color', 'dark', 'light', 'system'],
+    keywords: [
+      'appearance',
+      'theme',
+      'highlight',
+      'color',
+      'dark',
+      'light',
+      'system',
+      'font',
+      'size',
+      'sepia',
+      'forest',
+      'ink',
+      'palette',
+    ],
   },
   {
     id: 'library',
@@ -261,7 +276,7 @@ export function SettingsDialog({
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
-          Appearance, highlight color, notes folders, and GitHub repositories.
+          Appearance, font size, color theme, highlight color, notes folders, and GitHub repositories.
         </DialogDescription>
         <div className="flex h-full min-h-0 flex-1 max-sm:flex-col">
           <aside className="flex w-full shrink-0 flex-col gap-3 border-b bg-muted/40 p-3 sm:w-52 sm:border-r sm:border-b-0">
@@ -351,7 +366,8 @@ function GeneralPane() {
       <header className="grid gap-1">
         <h2 className="font-heading text-base font-medium">Preferences</h2>
         <p className="text-sm text-muted-foreground">
-          How the reader looks, and the color used when you mark a passage.
+          How the reader looks, the note type size, and the color used when you mark a passage.
+          Each theme also switches the typeface.
         </p>
       </header>
 
@@ -386,6 +402,15 @@ function GeneralPane() {
           </div>
         </PreferenceRow>
 
+        <PreferenceRow label="Font size">
+          <FontSizePicker />
+        </PreferenceRow>
+
+        <div className="grid gap-2 border-b py-3 last:border-b-0">
+          <span className="text-sm">Theme</span>
+          <PalettePicker />
+        </div>
+
         <PreferenceRow label="Highlight color">
           <div role="radiogroup" aria-label="Highlight color" className="flex flex-wrap gap-1.5">
             {HIGHLIGHT_COLORS.map((color) => {
@@ -411,10 +436,13 @@ function GeneralPane() {
         </PreferenceRow>
       </div>
 
-      <p className="rounded-lg border bg-muted/30 px-3 py-3 text-sm leading-relaxed">
-        Select a phrase and it will look like{' '}
-        <span className="ann-mark">this on the page</span>.
-      </p>
+      <div className="typeset typeset-docs rounded-lg border bg-muted/30 px-3 py-3">
+        <h3>A sample heading</h3>
+        <p>
+          Select a phrase and it will look like{' '}
+          <span className="ann-mark">this on the page</span>.
+        </p>
+      </div>
     </section>
   )
 }

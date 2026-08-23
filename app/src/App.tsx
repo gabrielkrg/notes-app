@@ -1,9 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from 'react'
 import {
-  Check,
+  Bookmark,
   ChevronLeft,
   ChevronRight,
-  CircleDashed,
   FileText,
   Folder,
   Pencil,
@@ -22,6 +21,7 @@ import { FolderFileAccordion } from '@/components/folder-file-accordion'
 import { CreateNoteDialog } from '@/components/create-note-dialog'
 import { DeleteNoteDialog } from '@/components/delete-note-dialog'
 import { RenameNoteDialog } from '@/components/rename-note-dialog'
+import { BookmarksDialog } from '@/components/bookmarks-dialog'
 import { SettingsDialog } from '@/components/settings-dialog'
 import {
   Breadcrumb,
@@ -51,17 +51,19 @@ import { PlainText, type PlainTextHandle } from '@/components/plain-text'
 import { FindBar } from '@/components/find-bar'
 import { HtmlPreview, type HtmlPreviewHandle } from '@/components/html-preview'
 import { SearchCommand, SearchTrigger } from '@/components/search-command'
-import { ThemeToggle } from '@/components/theme-toggle'
 import { WindowControls } from '@/components/window-controls'
+import { Kbd } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { HighlightProvider } from '@/lib/highlight-provider.tsx'
+import { AppearanceProvider } from '@/lib/appearance-provider'
 import { ThemeProvider } from '@/lib/theme'
+import { bookmarkEntries, persistBookmarks, readBookmarks, toggleBookmark } from '@/lib/bookmarks.ts'
 import { noteEditorHref, storageKey } from '@/lib/config.ts'
 import { isDesktop } from '@/lib/desktop'
 import type { CreatedNote } from '@/lib/desktop.ts'
 import { fetchBrowserGithubNotes } from '@/lib/github-client.ts'
 import { isGithubVirtualPath, topLevelLabels } from '@/lib/github-notes.ts'
-import { CtrlKChord, isNewNoteShortcut } from '@/lib/key-chords'
+import { CtrlKChord, isEditNoteShortcut, isNewNoteShortcut } from '@/lib/key-chords'
 import { clearFindHighlight, collectText, revealInElement } from '@/lib/find-dom.ts'
 import {
   isFindNextShortcut,
@@ -105,7 +107,6 @@ import {
 type CreateState = { kind: NoteKind; parent: string }
 
 const PAGE_SHELL = 'mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8'
-const DONE_KEY = storageKey('done')
 const LAST_KEY = storageKey('last')
 
 function noteRelPath(file: string) {
@@ -117,19 +118,6 @@ function openNoteFile(event: MouseEvent<HTMLAnchorElement>, file: string) {
     event.preventDefault()
     window.desktop.openNote(file)
   }
-}
-
-function loadDone(): Set<string> {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(DONE_KEY) || '[]') as unknown
-    return new Set(Array.isArray(parsed) ? parsed.map((item) => String(item)) : [])
-  } catch {
-    return new Set()
-  }
-}
-
-function saveDone(set: Set<string>) {
-  localStorage.setItem(DONE_KEY, JSON.stringify([...set]))
 }
 
 function emptyContent(): Content {
@@ -148,6 +136,7 @@ export default function App() {
   const [route, setRoute] = useState(() => parseHash())
   const [searchOpen, setSearchOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [bookmarksOpen, setBookmarksOpen] = useState(false)
   const [createState, setCreateState] = useState<CreateState | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null)
@@ -155,7 +144,7 @@ export default function App() {
   const [draft, setDraft] = useState('')
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [done, setDone] = useState<Set<string>>(loadDone)
+  const [bookmarks, setBookmarks] = useState<string[]>(readBookmarks)
   const contentRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<NoteEditorHandle | CodeEditorHandle | PlainTextHandle | null>(null)
   const chordRef = useRef<CtrlKChord | null>(null)
@@ -271,6 +260,11 @@ export default function App() {
       }
       if (!(event.target instanceof HTMLElement)) return
       if (event.target.matches('input, textarea') || event.target.isContentEditable) return
+      if (isEditNoteShortcut(event) && desktop && page && !editing && !page.readonly) {
+        event.preventDefault()
+        startEditing()
+        return
+      }
       if (event.key === '/') {
         event.preventDefault()
         setSearchOpen(true)
@@ -325,7 +319,6 @@ function startEditing() {
       await window.desktop.writeNote(page.file, latest)
       await reloadNotes()
       setDirty(false)
-      setEditing(false)
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Could not save the note')
     } finally {
@@ -333,14 +326,8 @@ function startEditing() {
     }
   }
 
-  function toggleDone(file: string) {
-    setDone((current) => {
-      const nextSet = new Set(current)
-      if (nextSet.has(file)) nextSet.delete(file)
-      else nextSet.add(file)
-      saveDone(nextSet)
-      return nextSet
-    })
+  function toggleBookmarked(file: string) {
+    setBookmarks((current) => persistBookmarks(toggleBookmark(current, file)))
   }
 
   async function addNotesFolder() {
@@ -444,10 +431,9 @@ function startEditing() {
     setDeleteTarget(null)
   }
 
-  const doneCount = content.topicPages.filter((item) => done.has(item.file)).length
-
   return (
     <ThemeProvider>
+      <AppearanceProvider>
       <HighlightProvider>
         <TooltipProvider>
         <SidebarProvider className="h-svh flex-col overflow-hidden">
@@ -509,16 +495,6 @@ function startEditing() {
                 onOpen={() => setSearchOpen(true)}
                 className="w-36 shrink-0 sm:w-56"
               />
-              {page && !page.isIndex && (
-                <Button
-                  variant={done.has(page.file) ? 'secondary' : 'outline'}
-                  size="sm"
-                  onClick={() => toggleDone(page.file)}
-                >
-                  {done.has(page.file) ? <Check /> : <CircleDashed />}
-                  {done.has(page.file) ? 'Read' : 'Mark as read'}
-                </Button>
-              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -551,7 +527,6 @@ function startEditing() {
               >
                 <Settings />
               </Button>
-              <ThemeToggle />
               <WindowControls />
             </div>
           </header>
@@ -559,9 +534,7 @@ function startEditing() {
           <AppSidebar
             tree={tree}
             route={route}
-            done={done}
-            doneCount={doneCount}
-            topicCount={content.topicCount}
+            bookmarks={bookmarks}
             onGo={go}
             canCreate={desktop}
             canCreateAtRoot={canCreateAtRoot}
@@ -594,6 +567,14 @@ function startEditing() {
                 : undefined
             }
             onRemoveRoot={desktop ? removeNotesFolder : undefined}
+            onOpenSettings={() => {
+              if (!confirmLeave()) return
+              setSettingsOpen(true)
+            }}
+            onOpenBookmarks={() => {
+              if (!confirmLeave()) return
+              setBookmarksOpen(true)
+            }}
           />
           <SidebarInset className="min-h-0 overflow-hidden">
             <div className="flex min-h-0 flex-1">
@@ -618,7 +599,6 @@ function startEditing() {
                   <Dashboard
                     last={last}
                     onOpen={go}
-                    done={done}
                     tree={tree}
                     nodes={overviewNodes(tree, route)}
                     pages={content.pages}
@@ -676,6 +656,10 @@ function startEditing() {
                           }
                         : undefined
                     }
+                    bookmarked={!page.isIndex && bookmarks.includes(page.file)}
+                    onToggleBookmark={
+                      page.isIndex ? undefined : () => toggleBookmarked(page.file)
+                    }
                     onRename={
                       desktop &&
                       !page.readonly &&
@@ -713,6 +697,13 @@ function startEditing() {
             onGo={go}
             tree={tree}
             listenShortcut={!desktop}
+          />
+          <BookmarksDialog
+            open={bookmarksOpen}
+            onOpenChange={setBookmarksOpen}
+            entries={bookmarkEntries(bookmarks, content.pages)}
+            onOpen={go}
+            onRemove={toggleBookmarked}
           />
           <SettingsDialog
             open={settingsOpen}
@@ -753,6 +744,7 @@ function startEditing() {
         </SidebarProvider>
         </TooltipProvider>
       </HighlightProvider>
+      </AppearanceProvider>
     </ThemeProvider>
   )
 }
@@ -760,7 +752,6 @@ function startEditing() {
 function Dashboard({
   last,
   onOpen,
-  done,
   tree,
   nodes,
   pages,
@@ -770,7 +761,6 @@ function Dashboard({
 }: {
   last: string | null
   onOpen: (route: string) => void
-  done: Set<string>
   tree: NavNode[]
   nodes: NavNode[]
   pages: Pages
@@ -814,9 +804,7 @@ function Dashboard({
           const isDir = node.type === 'dir'
           const preview = isDir ? node.focus : node.page.blurb
           const count = isDir ? countTopicPages(node) : 0
-          const marked = isDir ? countMarked(node, done) : 0
           const isGithubRoot = isDir && githubLabels.includes(node.path)
-          const fileRead = !isDir && done.has(node.page.file)
 
           return (
             <Card key={node.id} className="h-full p-0">
@@ -849,13 +837,9 @@ function Dashboard({
                   {isDir ? (
                     <>
                       {count} {count === 1 ? 'file' : 'files'}
-                      {marked > 0 ? ` · ${marked} read` : ''}
                     </>
                   ) : (
-                    <>
-                      {fileKindLabel(node.page.file)}
-                      {fileRead ? ' · Read' : ''}
-                    </>
+                    <>{fileKindLabel(node.page.file)}</>
                   )}
                 </CardFooter>
               </button>
@@ -870,11 +854,6 @@ function Dashboard({
       </p>
     </div>
   )
-}
-
-function countMarked(node: NavNode, done: Set<string>): number {
-  if (node.type === 'page') return done.has(node.page.file) ? 1 : 0
-  return (node.children || []).reduce((sum, child) => sum + countMarked(child, done), 0)
 }
 
 function fileKindLabel(file: string): string {
@@ -930,6 +909,8 @@ function Article({
   onSave,
   onDelete,
   onRename,
+  bookmarked = false,
+  onToggleBookmark,
 }: {
   page: NotePage
   files: Record<string, string>
@@ -952,6 +933,8 @@ function Article({
   onSave: () => void
   onDelete?: () => void
   onRename?: () => void
+  bookmarked?: boolean
+  onToggleBookmark?: () => void
 }) {
   const kind = fileKind(page.file)
   const markdown = kind === 'markdown'
@@ -1068,9 +1051,29 @@ function Article({
         />
       ) : null}
       <header className="grid gap-2">
-        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          {section?.label || 'Notes'}
-        </p>
+        <div className="flex items-center gap-2">
+          {onToggleBookmark ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark'}
+                  aria-pressed={bookmarked}
+                  onClick={onToggleBookmark}
+                  className="-ml-1.5 text-muted-foreground hover:text-foreground"
+                >
+                  <Bookmark className={bookmarked ? 'fill-current text-foreground' : undefined} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{bookmarked ? 'Bookmarked' : 'Bookmark'}</TooltipContent>
+            </Tooltip>
+          ) : null}
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            {section?.label || 'Notes'}
+          </p>
+        </div>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="font-heading text-3xl font-medium tracking-tight">
             {onRename ? (
@@ -1106,10 +1109,16 @@ function Article({
               </>
             )}
             {desktop && !editing && !readonly && (
-              <Button variant="outline" size="sm" onClick={onEdit}>
-                <Pencil />
-                Edit
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" onClick={onEdit}>
+                    <Pencil />
+                    Edit
+                    <Kbd>E</Kbd>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Edit this note</TooltipContent>
+              </Tooltip>
             )}
             {onDelete && !editing && (
               <Button variant="outline" size="sm" onClick={onDelete}>

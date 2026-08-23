@@ -12,3 +12,34 @@ export function depthPad(depth: number) {
 export function treeLine(depth: number) {
   return TREE_LINE[Math.min(depth, TREE_LINE.length - 1)]
 }
+
+type OpenableNode = {
+  type: string
+  id: string
+  path: string
+}
+
+export function dirOpenId(nodes: OpenableNode[], route: string) {
+  return (
+    nodes.find(
+      (node) =>
+        node.type === 'dir' &&
+        (route === node.path || route.startsWith(`${node.path}/`)),
+    )?.id ?? null
+  )
+}
+
+export function toggleOpenId(ids: string[], id: string, open: boolean) {
+  if (open) return ids.includes(id) ? ids : [...ids, id]
+  return ids.filter((item) => item !== id)
+}
+
+export function ensureOpenId(ids: string[], id: string | null) {
+  if (!id || ids.includes(id)) return ids
+  return [...ids, id]
+}
+
+export function folderOpenChange(next: boolean, href: string | undefined, route: string) {
+  if (next && href && href !== route) return { open: true, go: href }
+  return { open: next }
+}

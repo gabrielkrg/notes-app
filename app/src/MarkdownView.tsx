@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState, type MouseEvent } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
-import remarkGfm from 'remark-gfm'
 import Annotator, { Annotated } from './Annotator.tsx'
 import {
   loadAnnotations,
@@ -10,6 +9,7 @@ import {
   type Annotation,
 } from './annotations.ts'
 import { resolveMdHref, type NotePage } from './content.ts'
+import { markdownRemarkPlugins } from './lib/md-render.ts'
 
 export default function MarkdownView({ page, onNavigate }: { page: NotePage; onNavigate: (route: string) => void }) {
   const rootRef = useRef(null)
@@ -24,7 +24,7 @@ export default function MarkdownView({ page, onNavigate }: { page: NotePage; onN
     <Annotator rootRef={rootRef} annotations={annotations} onChange={onChange}>
       {({ onOpen, annotations: live }) => (
         <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
+          remarkPlugins={markdownRemarkPlugins}
           rehypePlugins={[rehypeHighlight, [rehypeAnnotate, live]]}
           components={{
             a({ href, children }) {

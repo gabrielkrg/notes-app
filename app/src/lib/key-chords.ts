@@ -75,3 +75,13 @@ export function isNewNoteShortcut(event: {
   return mod && String(event.key || '').toLowerCase() === 'n'
 }
 
+export function isEditNoteShortcut(event: {
+  key?: string
+  metaKey?: boolean
+  ctrlKey?: boolean
+  altKey?: boolean
+}): boolean {
+  if (event.metaKey || event.ctrlKey || event.altKey) return false
+  return String(event.key || '').toLowerCase() === 'e'
+}
+

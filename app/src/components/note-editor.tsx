@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { collectText, revealInElement, revealInTextarea, type RevealOptions } from '@/lib/find-dom.ts'
 import type { TextMatch } from '@/lib/find-in-page.ts'
 import { htmlToMd, joinNote, mdToHtml, splitFrontmatter } from '@/lib/md-wysiwyg.ts'
+import { loadNoteEditorTab, saveNoteEditorTab, type NoteEditorTab } from '@/lib/note-editor-tab.ts'
 
 export type NoteEditorHandle = {
   flush: () => string
@@ -33,13 +34,13 @@ type NoteEditorProps = {
 }
 
 export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function NoteEditor({ value, onChange }, ref) {
-  const [tab, setTab] = useState<'editor' | 'text'>('editor')
+  const [tab, setTab] = useState<NoteEditorTab>(() => loadNoteEditorTab(window.localStorage))
   const visualRef = useRef<HTMLDivElement>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
   const prefixRef = useRef('')
   const lastEmittedRef = useRef(value)
   const tabRef = useRef(tab)
-  const syncedTabRef = useRef<'editor' | 'text' | null>(null)
+  const syncedTabRef = useRef<NoteEditorTab | null>(null)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
   tabRef.current = tab
@@ -88,9 +89,10 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     },
   }))
 
-  function selectTab(next: 'editor' | 'text') {
+  function selectTab(next: NoteEditorTab) {
     if (next === tab) return
     if (tab === 'editor') emitFromVisual()
+    saveNoteEditorTab(window.localStorage, next)
     setTab(next)
   }
 

@@ -1,6 +1,6 @@
-import { useEffect, useState, type MouseEvent, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import {
-  Check,
+  Bookmark,
   ChevronRight,
   FilePen,
   FileText,
@@ -12,6 +12,7 @@ import {
   Network,
   Paperclip,
   Pencil,
+  Settings,
   Trash2,
 } from 'lucide-react'
 
@@ -27,7 +28,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
@@ -35,6 +35,7 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
@@ -48,7 +49,7 @@ import { GithubMark } from '@/components/github-mark.tsx'
 import { GRAPH_ROUTE, hrefForNode, isGraphRoute, compareNavNodes, type NavDirNode, type NavNode, type NavPageNode } from '@/content.ts'
 import { isGithubVirtualPath } from '@/lib/github-notes.ts'
 import { attachedRootForDir } from '@/lib/notes-roots.ts'
-import { depthPad, treeLine } from '@/lib/sidebar-tree.ts'
+import { depthPad, dirOpenId, ensureOpenId, folderOpenChange, toggleOpenId, treeLine } from '@/lib/sidebar-tree.ts'
 import type { DeleteTarget } from '@/lib/note-delete.ts'
 import type { NoteKind } from '@/lib/note-name.ts'
 import type { RenameTarget } from '@/lib/note-rename.ts'
@@ -59,25 +60,36 @@ function menuNodes(nodes: NavNode[]) {
   return [...nodes].sort(compareNavNodes)
 }
 
-function dirOpenId(nodes: NavNode[], route: string) {
-  return (
-    nodes.find(
-      (node) =>
-        node.type === 'dir' &&
-        (route === node.path || route.startsWith(`${node.path}/`))
-    )?.id ?? null
-  )
-}
+const FolderCollapseContext = createContext({
+  token: 0,
+  collapseAll: () => {},
+})
 
-function useAccordion(nodes: NavNode[], route: string) {
+function useOpenFolders(nodes: NavNode[], route: string, token: number) {
   const activeId = dirOpenId(nodes, route)
-  const [openId, setOpenId] = useState(activeId)
+  const [openIds, setOpenIds] = useState<string[]>(() => (activeId ? [activeId] : []))
+  const lastActiveId = useRef(activeId)
 
   useEffect(() => {
-    if (activeId) setOpenId(activeId)
+    if (token === 0) return
+    setOpenIds([])
+  }, [token])
+
+  useEffect(() => {
+    if (lastActiveId.current === activeId) return
+    lastActiveId.current = activeId
+    setOpenIds((current) => ensureOpenId(current, activeId))
   }, [activeId])
 
-  return [openId, setOpenId] as const
+  function setOpen(id: string, next: boolean) {
+    setOpenIds((current) => toggleOpenId(current, id, next))
+  }
+
+  function closeAll() {
+    setOpenIds([])
+  }
+
+  return [openIds, setOpen, closeAll] as const
 }
 
 function stopMenuBubble(event: { stopPropagation(): void }) {
@@ -157,27 +169,10 @@ function ItemMenu({
   )
 }
 
-export function AppSidebar({
-  tree,
-  route,
-  done,
-  doneCount,
-  topicCount,
-  onGo,
-  canCreate = false,
-  canCreateAtRoot = canCreate,
-  roots = [],
-  githubLabels = [],
-  onCreate,
-  onDelete,
-  onRename,
-  onRemoveRoot,
-}: {
+type AppSidebarProps = {
   tree: NavNode[]
   route: string
-  done: Set<string>
-  doneCount: number
-  topicCount: number
+  bookmarks: string[]
   onGo: (route: string) => void
   canCreate?: boolean
   canCreateAtRoot?: boolean
@@ -187,12 +182,50 @@ export function AppSidebar({
   onDelete?: (target: DeleteTarget) => void
   onRename?: (target: RenameTarget) => void
   onRemoveRoot?: (dir: string) => void
-}) {
-  const [openId, setOpenId] = useAccordion(tree, route)
+  onOpenSettings?: () => void
+  onOpenBookmarks?: () => void
+}
+
+export function AppSidebar({
+  tree,
+  route,
+  bookmarks,
+  onGo,
+  canCreate = false,
+  canCreateAtRoot = canCreate,
+  roots = [],
+  githubLabels = [],
+  onCreate,
+  onDelete,
+  onRename,
+  onRemoveRoot,
+  onOpenSettings,
+  onOpenBookmarks,
+}: AppSidebarProps) {
+  const [token, setToken] = useState(0)
+  const [openIds, setOpen, closeAll] = useOpenFolders(tree, route, token)
+  const collapseAll = () => {
+    closeAll()
+    setToken((n) => n + 1)
+  }
   const singleRoot = roots.length === 1 ? roots[0] : null
   const notesGroup = (
     <SidebarGroup>
-      <SidebarGroupLabel>Folders</SidebarGroupLabel>
+      <div className="group/folders-label relative">
+        <SidebarGroupLabel>Folders</SidebarGroupLabel>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <SidebarGroupAction
+              aria-label="Collapse folders"
+              onClick={collapseAll}
+              className="top-1.5 right-1 opacity-0 transition-opacity group-hover/folders-label:opacity-100 group-focus-within/folders-label:opacity-100 focus-visible:opacity-100"
+            >
+              <FolderMinus />
+            </SidebarGroupAction>
+          </TooltipTrigger>
+          <TooltipContent>Collapse folders</TooltipContent>
+        </Tooltip>
+      </div>
       <SidebarGroupContent>
         <SidebarMenu className="gap-0.5">
           {menuNodes(tree).map((node) => (
@@ -201,7 +234,7 @@ export function AppSidebar({
               node={node}
               depth={0}
               route={route}
-              done={done}
+              bookmarks={bookmarks}
               onGo={onGo}
               canCreate={canCreate}
               onCreate={onCreate}
@@ -210,8 +243,8 @@ export function AppSidebar({
               onRemoveRoot={onRemoveRoot}
               roots={roots}
               githubLabels={githubLabels}
-              open={openId === node.id}
-              onOpenChange={(next: boolean) => setOpenId(next ? node.id : null)}
+              open={openIds.includes(node.id)}
+              onOpenChange={(next: boolean) => setOpen(node.id, next)}
             />
           ))}
         </SidebarMenu>
@@ -220,6 +253,7 @@ export function AppSidebar({
   )
 
   return (
+    <FolderCollapseContext.Provider value={{ token, collapseAll }}>
     <Sidebar variant="inset" collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
@@ -284,6 +318,12 @@ export function AppSidebar({
                   <span>Graph</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton tooltip="Bookmarks" onClick={onOpenBookmarks}>
+                  <Bookmark />
+                  <span>Bookmarks</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -296,22 +336,18 @@ export function AppSidebar({
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="grid gap-2 px-2 group-data-[collapsible=icon]:hidden">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Read</span>
-            <span>
-              {doneCount}/{topicCount}
-            </span>
-          </div>
-          <Progress value={topicCount ? (doneCount / topicCount) * 100 : 0} />
-          <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            <ShortcutHint />
-            search · [ ] previous next
-          </p>
-        </div>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="Settings" onClick={onOpenSettings}>
+              <Settings />
+              <span>Settings</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
+    </FolderCollapseContext.Provider>
   )
 }
 
@@ -368,7 +404,7 @@ function NavNode({
   node,
   depth,
   route,
-  done,
+  bookmarks,
   onGo,
   open,
   onOpenChange,
@@ -383,7 +419,7 @@ function NavNode({
   node: NavNode
   depth: number
   route: string
-  done: Set<string>
+  bookmarks: string[]
   onGo: (route: string) => void
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -401,7 +437,7 @@ function NavNode({
         node={node}
         depth={depth}
         route={route}
-        done={done}
+        bookmarks={bookmarks}
         onGo={onGo}
         onDelete={onDelete}
         onRename={onRename}
@@ -414,7 +450,7 @@ function NavNode({
       node={node}
       depth={depth}
       route={route}
-      done={done}
+      bookmarks={bookmarks}
       onGo={onGo}
       open={open}
       onOpenChange={onOpenChange}
@@ -433,7 +469,7 @@ function FolderNode({
   node,
   depth,
   route,
-  done,
+  bookmarks,
   onGo,
   open,
   onOpenChange,
@@ -448,7 +484,7 @@ function FolderNode({
   node: NavDirNode
   depth: number
   route: string
-  done: Set<string>
+  bookmarks: string[]
   onGo: (route: string) => void
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -465,20 +501,17 @@ function FolderNode({
   const isGithubRoot = depth === 0 && githubLabels.includes(node.path)
   const Icon = open ? FolderOpen : Folder
   const children = node.children || []
-  const [childOpenId, setChildOpenId] = useAccordion(children, route)
+  const { token } = useContext(FolderCollapseContext)
+  const [childOpenIds, setChildOpen] = useOpenFolders(children, route, token)
   const attachedRoot = depth === 0 ? attachedRootForDir(roots, node.path) : null
   const canDeleteFolder = Boolean(onDelete) && !githubLocked && !attachedRoot
   const canRenameFolder = Boolean(onRename) && !githubLocked && !attachedRoot
   const canRemoveRoot = Boolean(onRemoveRoot && attachedRoot)
 
   function handleOpenChange(next: boolean) {
-    const href = hrefForNode(node)
-    if (href && href !== route) {
-      onOpenChange(true)
-      onGo(href)
-      return
-    }
-    onOpenChange(next)
+    const change = folderOpenChange(next, hrefForNode(node), route)
+    onOpenChange(change.open)
+    if (change.go) onGo(change.go)
   }
 
   const label = (
@@ -501,7 +534,7 @@ function FolderNode({
             node={child}
             depth={depth + 1}
             route={route}
-            done={done}
+            bookmarks={bookmarks}
             onGo={onGo}
             canCreate={canCreate}
             onCreate={onCreate}
@@ -510,8 +543,8 @@ function FolderNode({
             onRemoveRoot={onRemoveRoot}
             roots={roots}
             githubLabels={githubLabels}
-            open={childOpenId === child.id}
-            onOpenChange={(next: boolean) => setChildOpenId(next ? child.id : null)}
+            open={childOpenIds.includes(child.id)}
+            onOpenChange={(next: boolean) => setChildOpen(child.id, next)}
           />
         ))}
       </SidebarMenu>
@@ -568,7 +601,7 @@ function PageLink({
   node,
   depth,
   route,
-  done,
+  bookmarks,
   onGo,
   onDelete,
   onRename,
@@ -576,7 +609,7 @@ function PageLink({
   node: NavPageNode
   depth: number
   route: string
-  done: Set<string>
+  bookmarks: string[]
   onGo: (route: string) => void
   onDelete?: (target: DeleteTarget) => void
   onRename?: (target: RenameTarget) => void
@@ -588,8 +621,8 @@ function PageLink({
       <TreeTwist expandable={false} />
       <FileText />
       <span className="min-w-0 truncate">{node.label}</span>
-      {done.has(page.file) && (
-        <Check className="ml-auto size-3.5 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+      {bookmarks.includes(page.file) && (
+        <Bookmark className="ml-auto size-3.5 shrink-0 fill-current text-muted-foreground group-data-[collapsible=icon]:hidden" />
       )}
     </>
   )

@@ -18,7 +18,7 @@ export function FolderFileAccordion({
   if (!children.length) return null
 
   return (
-    <Collapsible className="group/folder-files rounded-xl bg-card ring-1 ring-foreground/10">
+    <Collapsible className="group/folder-files overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
       <CollapsibleTrigger className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/50">
         <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/folder-files:rotate-90" />
         <span>Files in this folder</span>
