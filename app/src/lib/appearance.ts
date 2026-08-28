@@ -9,16 +9,88 @@ export const FONT_SIZES = [
 
 export type FontSize = (typeof FONT_SIZES)[number]['id']
 
+export const TYPEFACES = [
+  {
+    id: 'grotesk-merriweather',
+    label: 'Grotesk + Merriweather',
+    faces: 'Grotesk + Merriweather',
+    sans: 'var(--font-space-grotesk)',
+    heading: 'var(--font-merriweather)',
+  },
+  {
+    id: 'literata',
+    label: 'Literata',
+    faces: 'Literata',
+    sans: 'var(--font-literata)',
+    heading: 'var(--font-literata)',
+  },
+  {
+    id: 'mono-grotesk',
+    label: 'Mono + Grotesk',
+    faces: 'Mono + Grotesk',
+    sans: 'var(--font-jetbrains-mono)',
+    heading: 'var(--font-space-grotesk)',
+  },
+  {
+    id: 'grotesk',
+    label: 'Grotesk',
+    faces: 'Grotesk',
+    sans: 'var(--font-space-grotesk)',
+    heading: 'var(--font-space-grotesk)',
+  },
+  {
+    id: 'literata-grotesk',
+    label: 'Literata + Grotesk',
+    faces: 'Literata + Grotesk',
+    sans: 'var(--font-literata)',
+    heading: 'var(--font-space-grotesk)',
+  },
+  {
+    id: 'merriweather-mono',
+    label: 'Merriweather + Mono',
+    faces: 'Merriweather + Mono',
+    sans: 'var(--font-merriweather)',
+    heading: 'var(--font-jetbrains-mono)',
+  },
+  {
+    id: 'plex',
+    label: 'Plex',
+    faces: 'IBM Plex Sans',
+    sans: 'var(--font-ibm-plex-sans)',
+    heading: 'var(--font-ibm-plex-sans)',
+  },
+  {
+    id: 'source',
+    label: 'Source',
+    faces: 'Source Serif',
+    sans: 'var(--font-source-serif)',
+    heading: 'var(--font-source-serif)',
+  },
+  {
+    id: 'news',
+    label: 'News',
+    faces: 'Newsreader + Plex',
+    sans: 'var(--font-newsreader)',
+    heading: 'var(--font-ibm-plex-sans)',
+  },
+] as const
+
+export type Typeface = (typeof TYPEFACES)[number]['id']
+
 export const PALETTES = [
-  { id: 'ink', label: 'Ink', swatch: '#d4d4d8', faces: 'Grotesk + Merriweather' },
-  { id: 'sepia', label: 'Sepia', swatch: '#c9a36b', faces: 'Literata' },
-  { id: 'forest', label: 'Forest', swatch: '#5f8a68', faces: 'Mono + Grotesk' },
+  { id: 'ink', label: 'Ink', swatch: '#d4d4d8', typeface: 'grotesk-merriweather' },
+  { id: 'sepia', label: 'Sepia', swatch: '#c9a36b', typeface: 'literata' },
+  { id: 'forest', label: 'Forest', swatch: '#5f8a68', typeface: 'mono-grotesk' },
+  { id: 'slate', label: 'Slate', swatch: '#7a8fa3', typeface: 'grotesk' },
+  { id: 'dusk', label: 'Dusk', swatch: '#c48b8b', typeface: 'literata-grotesk' },
+  { id: 'midnight', label: 'Midnight', swatch: '#3d5a80', typeface: 'merriweather-mono' },
 ] as const
 
 export type Palette = (typeof PALETTES)[number]['id']
 
 export const FONT_SIZE_STORAGE_KEY = storageKey('font-size')
 export const PALETTE_STORAGE_KEY = storageKey('palette')
+export const TYPEFACE_STORAGE_KEY = storageKey('typeface')
 
 const TITLE_BAR: Record<Palette, { light: TitleBarOverlay; dark: TitleBarOverlay }> = {
   ink: {
@@ -33,11 +105,23 @@ const TITLE_BAR: Record<Palette, { light: TitleBarOverlay; dark: TitleBarOverlay
     light: { color: '#e8f0e8', symbolColor: '#243028', height: TITLE_BAR_HEIGHT },
     dark: { color: '#1a221c', symbolColor: '#e4eee6', height: TITLE_BAR_HEIGHT },
   },
+  slate: {
+    light: { color: '#eef2f6', symbolColor: '#243040', height: TITLE_BAR_HEIGHT },
+    dark: { color: '#1c2228', symbolColor: '#e8eef4', height: TITLE_BAR_HEIGHT },
+  },
+  dusk: {
+    light: { color: '#f4e8e6', symbolColor: '#3a2428', height: TITLE_BAR_HEIGHT },
+    dark: { color: '#2a1e20', symbolColor: '#f0e0de', height: TITLE_BAR_HEIGHT },
+  },
+  midnight: {
+    light: { color: '#e8eef6', symbolColor: '#1a2438', height: TITLE_BAR_HEIGHT },
+    dark: { color: '#121826', symbolColor: '#dce6f4', height: TITLE_BAR_HEIGHT },
+  },
 }
 
 type StyleTarget = {
   style: { setProperty(name: string, value: string): void }
-  dataset: { fontSize?: string; palette?: string }
+  dataset: { fontSize?: string; palette?: string; typeface?: string }
 }
 
 export function parseFontSize(value: unknown): FontSize {
@@ -48,35 +132,39 @@ export function parsePalette(value: unknown): Palette {
   return PALETTES.some((palette) => palette.id === value) ? (value as Palette) : 'ink'
 }
 
+export function parseTypeface(value: unknown): Typeface {
+  return TYPEFACES.some((typeface) => typeface.id === value) ? (value as Typeface) : 'grotesk-merriweather'
+}
+
+export function typefaceForPalette(id: Palette): Typeface {
+  return PALETTES.find((palette) => palette.id === parsePalette(id))!.typeface
+}
+
 export function fontSizeCustomProperties(id: FontSize): { '--font-size-base': string } {
   const size = FONT_SIZES.find((item) => item.id === id) ?? FONT_SIZES[1]
   return { '--font-size-base': size.value }
 }
 
-const PALETTE_FONTS: Record<Palette, { sans: string; heading: string }> = {
-  ink: {
-    sans: 'var(--font-space-grotesk)',
-    heading: 'var(--font-merriweather)',
-  },
-  sepia: {
-    sans: 'var(--font-literata)',
-    heading: 'var(--font-literata)',
-  },
-  forest: {
-    sans: 'var(--font-jetbrains-mono)',
-    heading: 'var(--font-space-grotesk)',
-  },
+function typefaceEntry(id: Typeface): (typeof TYPEFACES)[number] {
+  return TYPEFACES.find((item) => item.id === parseTypeface(id)) ?? TYPEFACES[0]
+}
+
+export function typefaceCustomProperties(id: Typeface): {
+  '--font-sans': string
+  '--font-heading': string
+} {
+  const fonts = typefaceEntry(id)
+  return {
+    '--font-sans': fonts.sans,
+    '--font-heading': fonts.heading,
+  }
 }
 
 export function paletteCustomProperties(id: Palette): {
   '--font-sans': string
   '--font-heading': string
 } {
-  const fonts = PALETTE_FONTS[parsePalette(id)]
-  return {
-    '--font-sans': fonts.sans,
-    '--font-heading': fonts.heading,
-  }
+  return typefaceCustomProperties(typefaceForPalette(id))
 }
 
 export function applyFontSize(id: FontSize, target: StyleTarget = document.documentElement): void {
@@ -87,10 +175,14 @@ export function applyFontSize(id: FontSize, target: StyleTarget = document.docum
 }
 
 export function applyPalette(id: Palette, target: StyleTarget = document.documentElement): void {
-  const palette = parsePalette(id)
-  const vars = paletteCustomProperties(palette)
+  target.dataset.palette = parsePalette(id)
+}
+
+export function applyTypeface(id: Typeface, target: StyleTarget = document.documentElement): void {
+  const typeface = parseTypeface(id)
+  const vars = typefaceCustomProperties(typeface)
   for (const [name, value] of Object.entries(vars)) target.style.setProperty(name, value)
-  target.dataset.palette = palette
+  target.dataset.typeface = typeface
 }
 
 export function titleBarOverlayForPalette(id: Palette, dark: boolean): TitleBarOverlay {
@@ -125,6 +217,24 @@ export function readPalette(): Palette {
 export function persistPalette(id: Palette): void {
   try {
     localStorage.setItem(PALETTE_STORAGE_KEY, parsePalette(id))
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readTypeface(): Typeface {
+  try {
+    const stored = localStorage.getItem(TYPEFACE_STORAGE_KEY)
+    if (TYPEFACES.some((typeface) => typeface.id === stored)) return stored as Typeface
+  } catch {
+    /* ignore */
+  }
+  return typefaceForPalette(readPalette())
+}
+
+export function persistTypeface(id: Typeface): void {
+  try {
+    localStorage.setItem(TYPEFACE_STORAGE_KEY, parseTypeface(id))
   } catch {
     /* ignore */
   }

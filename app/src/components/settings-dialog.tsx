@@ -20,7 +20,7 @@ import {
   type GithubLibraryState,
 } from '@/lib/github-client.ts'
 import type { GithubRemote } from '@/lib/github-notes.ts'
-import { FontSizePicker, PalettePicker } from '@/components/appearance-controls.tsx'
+import { FontSizePicker, PalettePicker, TypefacePicker } from '@/components/appearance-controls.tsx'
 import { HIGHLIGHT_COLORS } from '@/lib/highlight.ts'
 import { useHighlight } from '@/lib/highlight-provider.tsx'
 import { useTheme, type Theme } from '@/lib/theme'
@@ -47,10 +47,17 @@ const SECTIONS: {
       'light',
       'system',
       'font',
+      'typeface',
       'size',
       'sepia',
       'forest',
       'ink',
+      'slate',
+      'dusk',
+      'midnight',
+      'plex',
+      'source',
+      'newsreader',
       'palette',
     ],
   },
@@ -367,7 +374,7 @@ function GeneralPane() {
         <h2 className="font-heading text-base font-medium">Preferences</h2>
         <p className="text-sm text-muted-foreground">
           How the reader looks, the note type size, and the color used when you mark a passage.
-          Each theme also switches the typeface.
+          A theme sets color and type. You can change the typeface after.
         </p>
       </header>
 
@@ -409,6 +416,11 @@ function GeneralPane() {
         <div className="grid gap-2 border-b py-3 last:border-b-0">
           <span className="text-sm">Theme</span>
           <PalettePicker />
+        </div>
+
+        <div className="grid gap-2 border-b py-3 last:border-b-0">
+          <span className="text-sm">Typeface</span>
+          <TypefacePicker />
         </div>
 
         <PreferenceRow label="Highlight color">

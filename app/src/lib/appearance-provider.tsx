@@ -3,25 +3,34 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import {
   applyFontSize,
   applyPalette,
+  applyTypeface,
   persistFontSize,
   persistPalette,
+  persistTypeface,
   readFontSize,
   readPalette,
+  readTypeface,
   syncDesktopTitleBar,
+  typefaceForPalette,
   type FontSize,
   type Palette,
+  type Typeface,
 } from './appearance.ts'
 
 const AppearanceContext = createContext<{
   fontSize: FontSize
   palette: Palette
+  typeface: Typeface
   setFontSize: (size: FontSize) => void
   setPalette: (palette: Palette) => void
+  setTypeface: (typeface: Typeface) => void
 }>({
   fontSize: 'medium',
   palette: 'ink',
+  typeface: 'grotesk-merriweather',
   setFontSize: () => {},
   setPalette: () => {},
+  setTypeface: () => {},
 })
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
@@ -33,6 +42,11 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   const [palette, setPaletteState] = useState<Palette>(() => {
     const next = readPalette()
     if (typeof document !== 'undefined') applyPalette(next)
+    return next
+  })
+  const [typeface, setTypefaceState] = useState<Typeface>(() => {
+    const next = readTypeface()
+    if (typeof document !== 'undefined') applyTypeface(next)
     return next
   })
 
@@ -47,13 +61,23 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     syncDesktopTitleBar()
   }, [palette])
 
+  useEffect(() => {
+    applyTypeface(typeface)
+    persistTypeface(typeface)
+  }, [typeface])
+
   return (
     <AppearanceContext.Provider
       value={{
         fontSize,
         palette,
+        typeface,
         setFontSize: setFontSizeState,
-        setPalette: setPaletteState,
+        setPalette: (next) => {
+          setPaletteState(next)
+          setTypefaceState(typefaceForPalette(next))
+        },
+        setTypeface: setTypefaceState,
       }}
     >
       {children}
