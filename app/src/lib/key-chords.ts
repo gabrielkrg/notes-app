@@ -85,3 +85,13 @@ export function isEditNoteShortcut(event: {
   return String(event.key || '').toLowerCase() === 'e'
 }
 
+export function isCancelEditShortcut(event: {
+  key?: string
+  metaKey?: boolean
+  ctrlKey?: boolean
+  altKey?: boolean
+}): boolean {
+  if (event.metaKey || event.ctrlKey || event.altKey) return false
+  return event.key === 'Escape'
+}
+

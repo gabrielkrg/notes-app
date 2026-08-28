@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it, mock } from 'node:test'
 
-import { CtrlKChord, isEditNoteShortcut, isNewNoteShortcut } from './key-chords.ts'
+import { CtrlKChord, isCancelEditShortcut, isEditNoteShortcut, isNewNoteShortcut } from './key-chords.ts'
 
 function keyEvent({ key, ctrlKey = false, metaKey = false }: { key: string; ctrlKey?: boolean; metaKey?: boolean }) {
   return {
@@ -93,5 +93,17 @@ describe('isEditNoteShortcut', () => {
     assert.equal(isEditNoteShortcut(keyEvent({ key: 'e', ctrlKey: true })), false)
     assert.equal(isEditNoteShortcut(keyEvent({ key: 'e', metaKey: true })), false)
     assert.equal(isEditNoteShortcut(keyEvent({ key: 'n' })), false)
+  })
+})
+
+describe('isCancelEditShortcut', () => {
+  it('matches Escape without a modifier', () => {
+    assert.equal(isCancelEditShortcut(keyEvent({ key: 'Escape' })), true)
+  })
+
+  it('ignores Escape with a modifier and other keys', () => {
+    assert.equal(isCancelEditShortcut(keyEvent({ key: 'Escape', ctrlKey: true })), false)
+    assert.equal(isCancelEditShortcut(keyEvent({ key: 'Escape', metaKey: true })), false)
+    assert.equal(isCancelEditShortcut(keyEvent({ key: 'e' })), false)
   })
 })

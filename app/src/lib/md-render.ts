@@ -1,4 +1,6 @@
 import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
 
-export const markdownRemarkPlugins = [remarkGfm, remarkBreaks]
+import { remarkPartialTasks } from './md-task.ts'
+
+export const markdownRemarkPlugins = [remarkGfm, remarkBreaks, remarkPartialTasks]

@@ -219,6 +219,43 @@
       vertical-align: -0.1em;
       accent-color: var(--color-primary, currentColor);
     }
+    &:where(button.task-toggle) {
+      appearance: none;
+      display: inline-grid;
+      place-items: center;
+      width: 1.1em;
+      height: 1.1em;
+      margin: 0 0.5em 0 0;
+      padding: 0;
+      vertical-align: -0.2em;
+      border: 1px solid color-mix(in oklab, var(--typeset-muted) 55%, transparent);
+      border-radius: 0.2em;
+      background: color-mix(in oklab, var(--typeset-muted) 22%, transparent);
+      color: var(--color-foreground, currentColor);
+      font: inherit;
+      font-size: 0.8em;
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
+    }
+    &:where(button.task-toggle[data-state='todo']) {
+      background: transparent;
+    }
+    &:where(button.task-toggle svg) {
+      width: 0.75em;
+      height: 0.75em;
+    }
+    &:where(button.task-toggle:hover:not(:disabled)) {
+      border-color: color-mix(in oklab, var(--typeset-muted) 85%, transparent);
+    }
+    &:where(button.task-toggle:focus-visible) {
+      outline: 2px solid var(--color-ring, currentColor);
+      outline-offset: 2px;
+    }
+    &:where(button.task-toggle:disabled) {
+      cursor: default;
+      opacity: 1;
+    }
 
     /* Disclosures. */
     &:where(details) {

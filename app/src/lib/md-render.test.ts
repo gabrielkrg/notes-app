@@ -22,4 +22,10 @@ describe('markdownRemarkPlugins', () => {
     const html = render('lighthouse\n\ntest')
     assert.match(html, /<p>lighthouse<\/p>\s*<p>test<\/p>/)
   })
+
+  it('turns [~] list items into task list items', () => {
+    const html = render('- [~] seeded')
+    assert.match(html, /task-list-item/)
+    assert.doesNotMatch(html, /\[~\]/)
+  })
 })

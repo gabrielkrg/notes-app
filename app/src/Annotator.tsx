@@ -58,52 +58,41 @@ export default function Annotator({
     if (!host) return
     const rootEl: HTMLDivElement = host
 
-    function onPointerUp(event: Event) {
+    function onContextMenu(event: MouseEvent) {
       const target = event.target
       if (target instanceof Element && target.closest?.('[data-slot="popover-content"], .ann-q')) return
 
-      window.requestAnimationFrame(() => {
-        const selection = window.getSelection()
-        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-          return
-        }
+      const selection = window.getSelection()
+      if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return
 
-        const range = selection.getRangeAt(0)
-        if (!rootEl.contains(range.commonAncestorContainer)) {
-          setMenu(null)
-          return
-        }
+      const range = selection.getRangeAt(0)
+      if (!rootEl.contains(range.commonAncestorContainer)) return
 
-        const quote = quoteFromRange(range, rootEl)
-        if (!quote) {
-          setMenu(null)
-          return
-        }
+      const quote = quoteFromRange(range, rootEl)
+      if (!quote) return
 
-        const rect = range.getBoundingClientRect()
-        const existing = annotations.find(
-          (item) =>
-            item.exact === quote.exact &&
-            item.prefix === quote.prefix &&
-            item.suffix === quote.suffix,
-        )
+      event.preventDefault()
 
-        setDraft(existing?.text || '')
-        setMenu({
-          quote,
-          existing,
-          mode: 'choose',
-          x: clampX(rect.left + rect.width / 2),
-          y: Math.max(8, rect.top),
-        })
+      const existing = annotations.find(
+        (item) =>
+          item.exact === quote.exact &&
+          item.prefix === quote.prefix &&
+          item.suffix === quote.suffix,
+      )
+
+      setDraft(existing?.text || '')
+      setMenu({
+        quote,
+        existing,
+        mode: 'choose',
+        x: clampX(event.clientX),
+        y: Math.max(8, event.clientY),
       })
     }
 
-    document.addEventListener('mouseup', onPointerUp)
-    document.addEventListener('touchend', onPointerUp)
+    document.addEventListener('contextmenu', onContextMenu)
     return () => {
-      document.removeEventListener('mouseup', onPointerUp)
-      document.removeEventListener('touchend', onPointerUp)
+      document.removeEventListener('contextmenu', onContextMenu)
     }
   }, [annotations, rootRef])
 

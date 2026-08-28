@@ -63,7 +63,7 @@ import { isDesktop } from '@/lib/desktop'
 import type { CreatedNote } from '@/lib/desktop.ts'
 import { fetchBrowserGithubNotes } from '@/lib/github-client.ts'
 import { isGithubVirtualPath, topLevelLabels } from '@/lib/github-notes.ts'
-import { CtrlKChord, isEditNoteShortcut, isNewNoteShortcut } from '@/lib/key-chords'
+import { CtrlKChord, isCancelEditShortcut, isEditNoteShortcut, isNewNoteShortcut } from '@/lib/key-chords'
 import { clearFindHighlight, collectText, revealInElement } from '@/lib/find-dom.ts'
 import {
   isFindNextShortcut,
@@ -78,6 +78,8 @@ import type { DeleteTarget } from '@/lib/note-delete.ts'
 import type { NoteKind } from '@/lib/note-name.ts'
 import type { RenameTarget } from '@/lib/note-rename.ts'
 import { fileKind } from '@/lib/note-name.ts'
+import { toggleTaskInNote } from '@/lib/md-task.ts'
+import { splitFrontmatter } from '@/lib/md-wysiwyg.ts'
 import MarkdownView from './MarkdownView.tsx'
 import {
   bundledContent,
@@ -148,6 +150,8 @@ export default function App() {
   const contentRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<NoteEditorHandle | CodeEditorHandle | PlainTextHandle | null>(null)
   const chordRef = useRef<CtrlKChord | null>(null)
+  const noteRawRef = useRef('')
+  const taskWriteRef = useRef(Promise.resolve())
   if (!chordRef.current) chordRef.current = new CtrlKChord()
 
   const tree = content.navTree
@@ -229,6 +233,10 @@ export default function App() {
   }, [route])
 
   useEffect(() => {
+    noteRawRef.current = page?.raw || ''
+  }, [page?.file, page?.raw])
+
+  useEffect(() => {
     if (!editing || dirty) return
     setDraft(page?.raw || '')
   }, [editing, dirty, page?.file, page?.raw])
@@ -239,6 +247,13 @@ export default function App() {
         if (!editing) return
         event.preventDefault()
         saveDraft()
+        return
+      }
+      if (isCancelEditShortcut(event) && editing) {
+        if (searchOpen) return
+        if (event.target instanceof Element && event.target.closest('[role="dialog"]')) return
+        event.preventDefault()
+        cancelEditing()
         return
       }
       if (desktop && canCreateAtRoot && isNewNoteShortcut(event)) {
@@ -274,7 +289,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [prev, next, editing, draft, page, desktop, searchOpen, canCreateAtRoot, defaultLabel])
+  }, [prev, next, editing, dirty, draft, page, desktop, searchOpen, canCreateAtRoot, defaultLabel])
 
   useEffect(() => {
     return () => chordRef.current?.dispose()
@@ -310,6 +325,14 @@ function startEditing() {
     setEditing(true)
   }
 
+  function cancelEditing() {
+    if (!editing) return
+    if (!confirmLeave()) return
+    setDraft(page?.raw || '')
+    setDirty(false)
+    setEditing(false)
+  }
+
   async function saveDraft() {
     if (!page || !window.desktop?.writeNote) return
     const latest = editorRef.current?.flush?.() ?? draft
@@ -324,6 +347,35 @@ function startEditing() {
     } finally {
       setSaving(false)
     }
+  }
+
+  function toggleTask(index: number) {
+    if (!page || page.readonly || !window.desktop?.writeNote) return
+    const nextRaw = toggleTaskInNote(noteRawRef.current, index)
+    if (nextRaw === noteRawRef.current) return
+    noteRawRef.current = nextRaw
+    const { body } = splitFrontmatter(nextRaw)
+    const file = page.file
+    setContent((current) => {
+      const currentPage = current.pages[file]
+      if (!currentPage) return current
+      return {
+        ...current,
+        pages: {
+          ...current.pages,
+          [file]: { ...currentPage, raw: nextRaw, body },
+        },
+      }
+    })
+    const write = window.desktop.writeNote
+    taskWriteRef.current = taskWriteRef.current.then(async () => {
+      try {
+        await write(file, noteRawRef.current)
+      } catch (err) {
+        window.alert(err instanceof Error ? err.message : 'Could not save the note')
+        await reloadNotes()
+      }
+    })
   }
 
   function toggleBookmarked(file: string) {
@@ -627,12 +679,7 @@ function startEditing() {
                       setDirty(value !== (page.raw || ''))
                     }}
                     onEdit={startEditing}
-                    onCancel={() => {
-                      if (!confirmLeave()) return
-                      setDraft(page.raw || '')
-                      setDirty(false)
-                      setEditing(false)
-                    }}
+                    onCancel={cancelEditing}
                     editorRef={editorRef}
                     onSave={saveDraft}
                     onDelete={
@@ -659,6 +706,9 @@ function startEditing() {
                     bookmarked={!page.isIndex && bookmarks.includes(page.file)}
                     onToggleBookmark={
                       page.isIndex ? undefined : () => toggleBookmarked(page.file)
+                    }
+                    onToggleTask={
+                      desktop && !page.readonly ? (index: number) => toggleTask(index) : undefined
                     }
                     onRename={
                       desktop &&
@@ -909,6 +959,7 @@ function Article({
   onSave,
   onDelete,
   onRename,
+  onToggleTask,
   bookmarked = false,
   onToggleBookmark,
 }: {
@@ -933,6 +984,7 @@ function Article({
   onSave: () => void
   onDelete?: () => void
   onRename?: () => void
+  onToggleTask?: (index: number) => void
   bookmarked?: boolean
   onToggleBookmark?: () => void
 }) {
@@ -1019,6 +1071,7 @@ function Article({
       if (!findOpen) return
       if (event.key === 'Escape') {
         event.preventDefault()
+        event.stopPropagation()
         closeFind()
         return
       }
@@ -1101,6 +1154,7 @@ function Article({
                 <Button variant="outline" size="sm" onClick={onCancel}>
                   <X />
                   Cancel
+                  <Kbd>Esc</Kbd>
                 </Button>
                 <Button size="sm" onClick={onSave} disabled={saving || !dirty}>
                   <Save />
@@ -1157,7 +1211,7 @@ function Article({
         )}
         {!editing && markdown && (
           <p className="text-sm text-muted-foreground">
-            Select a phrase to highlight it or attach a note.
+            Select a phrase, then right-click to highlight it or attach a note.
           </p>
         )}
       </header>
@@ -1197,7 +1251,7 @@ function Article({
           {kind === 'text' ? (
             <PlainText key={page.file} ref={viewFindRef} value={page.body} readOnly />
           ) : (
-            <MarkdownView key={page.file} page={page} onNavigate={onGo} />
+            <MarkdownView key={page.file} page={page} onNavigate={onGo} onToggleTask={onToggleTask} />
           )}
         </div>
       )}
