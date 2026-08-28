@@ -40,3 +40,18 @@ export function openWithLaunches(platform: string, file: string): OpenWithLaunch
     { kind: 'openPath' },
   ]
 }
+
+export function openInBrowserLaunches(platform: string, file: string): OpenWithLaunch[] {
+  if (platform === 'win32') return [{ kind: 'openPath' }]
+  if (platform === 'darwin') {
+    return [
+      { kind: 'spawn', command: 'open', args: [file] },
+      { kind: 'openPath' },
+    ]
+  }
+  return [
+    { kind: 'spawn', command: 'xdg-open', args: [file] },
+    { kind: 'openPath' },
+  ]
+}
+

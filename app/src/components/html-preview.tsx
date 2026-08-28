@@ -50,7 +50,8 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, {
   html: string
   files: Record<string, string>
   title: string
-}>(function HtmlPreview({ file, html, files, title }, ref) {
+  fill?: boolean
+}>(function HtmlPreview({ file, html, files, title, fill = false }, ref) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const storageRef = useRef(readPreviewStorage(file))
   const [srcDoc, setSrcDoc] = useState(() => previewSrcDoc(file, html, files, undefined, storageRef.current))
@@ -173,8 +174,12 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, {
       onLoad={() => {
         if (iframeRef.current) iframeRef.current.dataset.ready = '1'
       }}
-      className="block w-full overflow-hidden border-0 bg-transparent"
-      style={{ height: height ? `${height}px` : undefined }}
+      className={
+        fill
+          ? 'block size-full overflow-auto border-0 bg-background'
+          : 'block w-full overflow-hidden border-0 bg-transparent'
+      }
+      style={fill ? undefined : { height: height ? `${height}px` : undefined }}
     />
   )
 })

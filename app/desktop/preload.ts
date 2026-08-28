@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('desktop', {
     return () => ipcRenderer.removeListener('window-maximize-changed', listener)
   },
   openNote: (file: string) => ipcRenderer.invoke('open-note', file),
+  openInBrowser: (file: string) => ipcRenderer.invoke('open-in-browser', file),
   listNotes: () => ipcRenderer.invoke('list-notes'),
   writeNote: (file: string, content: string) => ipcRenderer.invoke('write-note', file, content),
   readAsset: (file: string) => ipcRenderer.invoke('read-asset', file),

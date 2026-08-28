@@ -59,6 +59,7 @@ export type DesktopApi = {
   isMaximized(): Promise<boolean>
   onMaximizeChange(cb: (maximized: boolean) => void): () => void
   openNote(file: string): Promise<void>
+  openInBrowser(file: string): Promise<void>
   listNotes(): Promise<NotesSnapshot>
   writeNote(file: string, content: string): Promise<{ file: string }>
   readAsset(file: string): Promise<AssetResult>

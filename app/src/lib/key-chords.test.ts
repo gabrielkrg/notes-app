@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import { describe, it, mock } from 'node:test'
 
-import { CtrlKChord, isCancelEditShortcut, isEditNoteShortcut, isNewNoteShortcut } from './key-chords.ts'
+import {
+  CtrlKChord,
+  isCancelEditShortcut,
+  isEditNoteShortcut,
+  isHtmlFullscreenShortcut,
+  isNewNoteShortcut,
+  isReloadFoldersShortcut,
+} from './key-chords.ts'
 
 function keyEvent({ key, ctrlKey = false, metaKey = false }: { key: string; ctrlKey?: boolean; metaKey?: boolean }) {
   return {
@@ -93,6 +100,31 @@ describe('isEditNoteShortcut', () => {
     assert.equal(isEditNoteShortcut(keyEvent({ key: 'e', ctrlKey: true })), false)
     assert.equal(isEditNoteShortcut(keyEvent({ key: 'e', metaKey: true })), false)
     assert.equal(isEditNoteShortcut(keyEvent({ key: 'n' })), false)
+  })
+})
+
+describe('isHtmlFullscreenShortcut', () => {
+  it('matches F without a modifier', () => {
+    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'f' })), true)
+    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'F' })), true)
+  })
+
+  it('ignores F with a modifier and other keys', () => {
+    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'f', ctrlKey: true })), false)
+    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'f', metaKey: true })), false)
+    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'e' })), false)
+  })
+})
+
+describe('isReloadFoldersShortcut', () => {
+  it('matches F5 without a modifier', () => {
+    assert.equal(isReloadFoldersShortcut(keyEvent({ key: 'F5' })), true)
+  })
+
+  it('ignores F5 with a modifier and other keys', () => {
+    assert.equal(isReloadFoldersShortcut(keyEvent({ key: 'F5', ctrlKey: true })), false)
+    assert.equal(isReloadFoldersShortcut(keyEvent({ key: 'F5', metaKey: true })), false)
+    assert.equal(isReloadFoldersShortcut(keyEvent({ key: 'F3' })), false)
   })
 })
 

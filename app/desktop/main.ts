@@ -31,7 +31,7 @@ import {
   writeNote,
   type CreateOpts,
 } from './notes.ts'
-import { openWithLaunches, type OpenWithLaunch } from '../src/lib/open-with.ts'
+import { openInBrowserLaunches, openWithLaunches, type OpenWithLaunch } from '../src/lib/open-with.ts'
 import {
   TITLE_BAR_HEIGHT,
   desktopWindowChrome,
@@ -81,13 +81,24 @@ async function tryLaunch(abs: string, launch: OpenWithLaunch): Promise<void> {
 }
 
 async function openNote(file: string): Promise<void> {
+  return openNoteWith(file, openWithLaunches)
+}
+
+async function openInBrowser(file: string): Promise<void> {
+  return openNoteWith(file, openInBrowserLaunches)
+}
+
+async function openNoteWith(
+  file: string,
+  launchesFor: (platform: string, abs: string) => OpenWithLaunch[],
+): Promise<void> {
   const abs = resolveNoteFile(repoDir, file)
   if (!fs.existsSync(abs)) {
     throw new Error(`Note not found: ${abs}`)
   }
 
   let lastError: unknown
-  for (const launch of openWithLaunches(process.platform, abs)) {
+  for (const launch of launchesFor(process.platform, abs)) {
     try {
       await tryLaunch(abs, launch)
       return
@@ -185,6 +196,7 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     ipcMain.handle('open-note', (_event, file: string) => openNote(String(file || '')))
+    ipcMain.handle('open-in-browser', (_event, file: string) => openInBrowser(String(file || '')))
     ipcMain.handle('list-notes', wrap(() => listNotes(repoDir)))
     ipcMain.handle('write-note', wrap((file: string, content: string) => writeNote(repoDir, file, content)))
     ipcMain.handle('read-asset', wrap((file: string) => readAsset(repoDir, file)))

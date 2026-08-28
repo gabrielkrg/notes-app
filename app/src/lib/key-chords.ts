@@ -85,6 +85,26 @@ export function isEditNoteShortcut(event: {
   return String(event.key || '').toLowerCase() === 'e'
 }
 
+export function isHtmlFullscreenShortcut(event: {
+  key?: string
+  metaKey?: boolean
+  ctrlKey?: boolean
+  altKey?: boolean
+}): boolean {
+  if (event.metaKey || event.ctrlKey || event.altKey) return false
+  return String(event.key || '').toLowerCase() === 'f'
+}
+
+export function isReloadFoldersShortcut(event: {
+  key?: string
+  metaKey?: boolean
+  ctrlKey?: boolean
+  altKey?: boolean
+}): boolean {
+  if (event.metaKey || event.ctrlKey || event.altKey) return false
+  return event.key === 'F5'
+}
+
 export function isCancelEditShortcut(event: {
   key?: string
   metaKey?: boolean

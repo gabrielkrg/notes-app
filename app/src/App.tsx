@@ -11,6 +11,9 @@ import {
   Settings,
   SquareArrowOutUpRight,
   Trash2,
+  Globe,
+  Maximize2,
+  Minimize2,
   X,
 } from 'lucide-react'
 
@@ -50,6 +53,7 @@ import { CodeEditor, type CodeEditorHandle } from '@/components/code-editor'
 import { PlainText, type PlainTextHandle } from '@/components/plain-text'
 import { FindBar } from '@/components/find-bar'
 import { HtmlPreview, type HtmlPreviewHandle } from '@/components/html-preview'
+import { rewriteHtmlPreview } from '@/lib/html-preview.ts'
 import { SearchCommand, SearchTrigger } from '@/components/search-command'
 import { WindowControls } from '@/components/window-controls'
 import { Kbd } from '@/components/ui/kbd'
@@ -63,7 +67,7 @@ import { isDesktop } from '@/lib/desktop'
 import type { CreatedNote } from '@/lib/desktop.ts'
 import { fetchBrowserGithubNotes } from '@/lib/github-client.ts'
 import { isGithubVirtualPath, topLevelLabels } from '@/lib/github-notes.ts'
-import { CtrlKChord, isCancelEditShortcut, isEditNoteShortcut, isNewNoteShortcut } from '@/lib/key-chords'
+import { CtrlKChord, isCancelEditShortcut, isEditNoteShortcut, isHtmlFullscreenShortcut, isNewNoteShortcut, isReloadFoldersShortcut } from '@/lib/key-chords'
 import { clearFindHighlight, collectText, revealInElement } from '@/lib/find-dom.ts'
 import {
   isFindNextShortcut,
@@ -217,6 +221,16 @@ export default function App() {
     }
   }
 
+  async function refreshFolders() {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      await reloadNotes()
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   useEffect(() => {
     reloadNotes()
   }, [desktop])
@@ -243,6 +257,11 @@ export default function App() {
 
   useEffect(() => {
     function onKey(event: globalThis.KeyboardEvent) {
+      if (isReloadFoldersShortcut(event)) {
+        event.preventDefault()
+        void refreshFolders()
+        return
+      }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
         if (!editing) return
         event.preventDefault()
@@ -289,7 +308,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [prev, next, editing, dirty, draft, page, desktop, searchOpen, canCreateAtRoot, defaultLabel])
+  }, [prev, next, editing, dirty, draft, page, desktop, searchOpen, canCreateAtRoot, defaultLabel, refreshing])
 
   useEffect(() => {
     return () => chordRef.current?.dispose()
@@ -553,20 +572,17 @@ function startEditing() {
                     variant="outline"
                     size="icon"
                     aria-label="Reload folders"
+                    aria-keyshortcuts="F5"
                     disabled={refreshing}
-                    onClick={async () => {
-                      setRefreshing(true)
-                      try {
-                        await reloadNotes()
-                      } finally {
-                        setRefreshing(false)
-                      }
-                    }}
+                    onClick={() => void refreshFolders()}
                   >
                     <RefreshCw className={refreshing ? 'animate-spin' : undefined} />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Reload folders</TooltipContent>
+                <TooltipContent>
+                  Reload folders
+                  <Kbd>F5</Kbd>
+                </TooltipContent>
               </Tooltip>
               <Button
                 variant="outline"
@@ -991,6 +1007,8 @@ function Article({
   const kind = fileKind(page.file)
   const markdown = kind === 'markdown'
   const htmlPreviewRef = useRef<HtmlPreviewHandle>(null)
+  const previewStageRef = useRef<HTMLDivElement>(null)
+  const [htmlFullscreen, setHtmlFullscreen] = useState(false)
   const viewFindRef = useRef<CodeEditorHandle | PlainTextHandle | null>(null)
   const viewRootRef = useRef<HTMLDivElement>(null)
   const [findOpen, setFindOpen] = useState(false)
@@ -1003,6 +1021,42 @@ function Article({
   const findRevealedRef = useRef(false)
   findQueryRef.current = findQuery
   findResultRef.current = findResult
+
+  useEffect(() => {
+    setHtmlFullscreen(false)
+  }, [page.file, editing])
+
+  useEffect(() => {
+    function onChange() {
+      if (!document.fullscreenElement) setHtmlFullscreen(false)
+    }
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  useEffect(() => {
+    const el = previewStageRef.current
+    if (htmlFullscreen) {
+      if (el && document.fullscreenElement !== el) void el.requestFullscreen?.().catch(() => {})
+      return
+    }
+    if (document.fullscreenElement === el) void document.exitFullscreen?.().catch(() => {})
+  }, [htmlFullscreen])
+
+  async function openHtmlInBrowser() {
+    try {
+      if (window.desktop?.openInBrowser && !readonly) {
+        await window.desktop.openInBrowser(page.file)
+        return
+      }
+      const html = rewriteHtmlPreview(page.file, page.raw, files)
+      const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
+      const opened = window.open(url, '_blank', 'noopener,noreferrer')
+      if (!opened) URL.revokeObjectURL(url)
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Could not open in the browser')
+    }
+  }
 
   function restoreFindFocus(input: HTMLInputElement | null, start?: number | null, end?: number | null) {
     if (!input?.isConnected) return
@@ -1068,6 +1122,27 @@ function Article({
         setFindFocus((token) => token + 1)
         return
       }
+      if (htmlFullscreen && event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        setHtmlFullscreen(false)
+        return
+      }
+      if (
+        isHtmlFullscreenShortcut(event) &&
+        !editing &&
+        kind === 'html' &&
+        !htmlFullscreen &&
+        !findOpen
+      ) {
+        if (event.target instanceof HTMLElement && (event.target.matches('input, textarea') || event.target.isContentEditable)) {
+          return
+        }
+        event.preventDefault()
+        event.stopPropagation()
+        setHtmlFullscreen(true)
+        return
+      }
       if (!findOpen) return
       if (event.key === 'Escape') {
         event.preventDefault()
@@ -1087,7 +1162,7 @@ function Article({
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [findOpen, page.file, editing, kind])
+  }, [findOpen, htmlFullscreen, page.file, editing, kind])
 
   return (
     <article className={PAGE_SHELL}>
@@ -1174,6 +1249,34 @@ function Article({
                 <TooltipContent>Edit this note</TooltipContent>
               </Tooltip>
             )}
+            {!editing && kind === 'html' && (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setHtmlFullscreen(true)}
+                      aria-pressed={htmlFullscreen}
+                    >
+                      <Maximize2 />
+                      Fullscreen
+                      <Kbd>F</Kbd>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>View this page fullscreen</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="sm" onClick={() => void openHtmlInBrowser()}>
+                      <Globe />
+                      Open in browser
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Open this HTML file in your browser</TooltipContent>
+                </Tooltip>
+              </>
+            )}
             {onDelete && !editing && (
               <Button variant="outline" size="sm" onClick={onDelete}>
                 <Trash2 />
@@ -1243,7 +1346,30 @@ function Article({
           />
         )
       ) : kind === 'html' ? (
-        <HtmlPreview ref={htmlPreviewRef} file={page.file} html={page.raw} files={files} title={page.title} />
+        <div
+          ref={previewStageRef}
+          className={htmlFullscreen ? 'fixed inset-0 z-50 flex flex-col bg-background' : undefined}
+        >
+          {htmlFullscreen ? (
+            <div className="absolute top-3 right-3 z-10">
+              <Button variant="outline" size="sm" onClick={() => setHtmlFullscreen(false)}>
+                <Minimize2 />
+                Exit fullscreen
+                <Kbd>Esc</Kbd>
+              </Button>
+            </div>
+          ) : null}
+          <div className={htmlFullscreen ? 'min-h-0 flex-1' : undefined}>
+            <HtmlPreview
+              ref={htmlPreviewRef}
+              file={page.file}
+              html={page.raw}
+              files={files}
+              title={page.title}
+              fill={htmlFullscreen}
+            />
+          </div>
+        </div>
       ) : kind === 'css' || kind === 'js' ? (
         <CodeEditor key={page.file} ref={viewFindRef} kind={kind} value={page.raw} readOnly />
       ) : (
