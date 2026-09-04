@@ -541,6 +541,84 @@
   padding-right: max(1rem, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)));
 }
 
+/*
+ * Android draws the app edge-to-edge under the status and gesture bars, so the
+ * shell has to inset itself. Only the Capacitor bootstrap adds `.capacitor`;
+ * everywhere else these rules are inert.
+ */
+.capacitor .titlebar {
+  box-sizing: content-box;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.capacitor .titlebar-inner {
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+
+.capacitor [data-slot='sidebar-wrapper'] {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/*
+ * The mobile sidebar is a Sheet overlaying the whole screen, so it clears the
+ * system bars itself rather than inheriting the shell's padding.
+ */
+.capacitor [data-slot='sidebar'][data-mobile='true'] {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/*
+ * The breadcrumb list wraps by default. Inside a fixed-height title bar a
+ * two-line trail spills out over the status bar, so on a phone it stays on one
+ * line and the trailing crumb truncates.
+ */
+.capacitor .titlebar [data-slot='breadcrumb-list'] {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.capacitor .titlebar [data-slot='breadcrumb-list'] > li {
+  min-width: 0;
+}
+
+.capacitor .titlebar :is([data-slot='breadcrumb-link'], [data-slot='breadcrumb-page']) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A long unbroken word should wrap rather than widen the page. */
+.capacitor [data-slot='sidebar-inset'] {
+  overflow-wrap: break-word;
+}
+
+/*
+ * Fullscreen HTML covers the screen with `fixed inset-0`, so the previewed
+ * page would otherwise start underneath the status bar.
+ */
+.capacitor .html-fullscreen {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/*
+ * The exit button is absolutely positioned, so it anchors to the padding box
+ * and has to clear the status bar on its own.
+ */
+.capacitor .html-fullscreen-exit {
+  top: calc(0.75rem + env(safe-area-inset-top, 0px));
+  right: calc(0.75rem + env(safe-area-inset-right, 0px));
+}
+
+/* Keyboard hints mean nothing on a phone, which has no keyboard to hint at. */
+.capacitor :is([data-slot='kbd'], [data-slot='kbd-group']) {
+  display: none;
+}
+
 .titlebar :is(a, button, input, [role='button'], [role='combobox']) {
   app-region: no-drag;
   -webkit-app-region: no-drag;

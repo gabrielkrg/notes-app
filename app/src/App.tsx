@@ -68,6 +68,7 @@ import type { CreatedNote } from '@/lib/desktop.ts'
 import { fetchBrowserGithubNotes } from '@/lib/github-client.ts'
 import { isGithubVirtualPath, topLevelLabels } from '@/lib/github-notes.ts'
 import { CtrlKChord, isCancelEditShortcut, isEditNoteShortcut, isHtmlFullscreenShortcut, isNewNoteShortcut, isReloadFoldersShortcut } from '@/lib/key-chords'
+import { isMobilePlatform } from '@/lib/title-bar.ts'
 import { clearFindHighlight, collectText, revealInElement } from '@/lib/find-dom.ts'
 import {
   isFindNextShortcut,
@@ -855,10 +856,12 @@ function Dashboard({
             : 'Notes stay on disk. Folders are menu groups. Use the sidebar or Settings to add files and point at a folder.'}
         </p>
         {last && lastPage && (
-          <div>
-            <Button onClick={() => onOpen(last)}>
-              Continue {lastSection?.label ? `${lastSection.label} · ` : ''}
-              {lastPage.title}
+          <div className="min-w-0">
+            <Button className="max-w-full min-w-0" onClick={() => onOpen(last)}>
+              <span className="truncate">
+                Continue {lastSection?.label ? `${lastSection.label} · ` : ''}
+                {lastPage.title}
+              </span>
             </Button>
           </div>
         )}
@@ -1036,6 +1039,11 @@ function Article({
 
   useEffect(() => {
     const el = previewStageRef.current
+    // On a phone the app already fills the screen, and the native fullscreen
+    // path draws to the raw display, where the safe-area insets that keep the
+    // preview clear of the status bar resolve to zero. The `fixed inset-0`
+    // overlay alone looks the same and keeps normal layout.
+    if (isMobilePlatform(window.desktop?.platform)) return
     if (htmlFullscreen) {
       if (el && document.fullscreenElement !== el) void el.requestFullscreen?.().catch(() => {})
       return
@@ -1348,10 +1356,12 @@ function Article({
       ) : kind === 'html' ? (
         <div
           ref={previewStageRef}
-          className={htmlFullscreen ? 'fixed inset-0 z-50 flex flex-col bg-background' : undefined}
+          className={
+            htmlFullscreen ? 'html-fullscreen fixed inset-0 z-50 flex flex-col bg-background' : undefined
+          }
         >
           {htmlFullscreen ? (
-            <div className="absolute top-3 right-3 z-10">
+            <div className="html-fullscreen-exit absolute top-3 right-3 z-10">
               <Button variant="outline" size="sm" onClick={() => setHtmlFullscreen(false)}>
                 <Minimize2 />
                 Exit fullscreen

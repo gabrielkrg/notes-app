@@ -9,8 +9,7 @@ import {
   overlayFromCssColors,
   parseCssRgb,
   rgbToHex,
-  titleBarOverlay,
-} from './title-bar.ts'
+  titleBarOverlay, isMobilePlatform } from './title-bar.ts'
 
 describe('titleBarOverlay', () => {
   it('uses dark chrome colors at the shared title-bar height', () => {
@@ -119,5 +118,27 @@ describe('needsCustomWindowButtons', () => {
   it('is a Windows fallback when the overlay is not visible', () => {
     assert.equal(needsCustomWindowButtons('win32', true), false)
     assert.equal(needsCustomWindowButtons('win32', false), true)
+  })
+
+  it('is false on phones, which have no window chrome', () => {
+    assert.equal(needsCustomWindowButtons('android', false), false)
+    assert.equal(needsCustomWindowButtons('android', true), false)
+    assert.equal(needsCustomWindowButtons('ios', false), false)
+    assert.equal(needsCustomWindowButtons('ios', true), false)
+  })
+})
+
+describe('isMobilePlatform', () => {
+  it('recognises the Capacitor phone platforms', () => {
+    assert.equal(isMobilePlatform('android'), true)
+    assert.equal(isMobilePlatform('ios'), true)
+  })
+
+  it('is false for desktop platforms and the browser', () => {
+    assert.equal(isMobilePlatform('linux'), false)
+    assert.equal(isMobilePlatform('win32'), false)
+    assert.equal(isMobilePlatform('darwin'), false)
+    assert.equal(isMobilePlatform('web'), false)
+    assert.equal(isMobilePlatform(undefined), false)
   })
 })

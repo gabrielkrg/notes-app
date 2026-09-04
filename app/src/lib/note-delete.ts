@@ -2,33 +2,16 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { isNoteFile } from './note-name.ts'
+import { confirmFolderName, type DeleteFolderOptions } from './note-delete-core.ts'
 import { resolveInside } from './note-path.ts'
 
-export type DeleteNoteTarget = {
-  kind: 'note'
-  name: string
-  file: string
-}
-
-export type DeleteFolderTarget = {
-  kind: 'folder'
-  name: string
-  path: string
-  expectedNames?: string[]
-}
-
-export type DeleteTarget = DeleteNoteTarget | DeleteFolderTarget
-
-export type DeleteFolderOptions = {
-  confirmName?: string
-  expectedNames?: string[]
-}
-
-export function confirmFolderName(typed: string, allowedNames: string[] = []): boolean {
-  const value = String(typed ?? '').trim()
-  if (!value) return false
-  return allowedNames.some((name) => String(name ?? '').trim() === value)
-}
+export { confirmFolderName }
+export type {
+  DeleteFolderOptions,
+  DeleteFolderTarget,
+  DeleteNoteTarget,
+  DeleteTarget,
+} from './note-delete-core.ts'
 
 export function deleteNoteAt(root: string, file: string): { file: string } {
   const rel = String(file || '').replace(/\\/g, '/')

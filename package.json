@@ -15,7 +15,14 @@
     "desktop:build": "npm run desktop:build -w app",
     "desktop:build:linux": "npm run desktop:build:linux -w app",
     "desktop:build:win": "npm run desktop:build:win -w app",
-    "desktop:build:mac": "npm run desktop:build:mac -w app"
+    "desktop:build:mac": "npm run desktop:build:mac -w app",
+    "mobile": "npm run mobile -w app",
+    "mobile:build": "npm run mobile:build -w app",
+    "mobile:sync": "npm run mobile:sync -w app",
+    "mobile:android": "npm run mobile:android -w app",
+    "mobile:run:android": "npm run mobile:run:android -w app",
+    "mobile:assets": "npm run mobile:assets -w app",
+    "mobile:build:android": "npm run mobile:build:android -w app"
   },
   "allowScripts": {
     "electron@41.10.6": true,

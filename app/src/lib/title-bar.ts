@@ -64,11 +64,19 @@ export function desktopWindowChrome(platform: string, dark: boolean) {
   }
 }
 
+/** Platforms with no app window to minimize, maximize or close. */
+const MOBILE_PLATFORMS = new Set(['android', 'ios'])
+
+export function isMobilePlatform(platform: string | undefined): boolean {
+  return Boolean(platform) && MOBILE_PLATFORMS.has(String(platform))
+}
+
 export function needsCustomWindowButtons(
   platform: string | undefined,
   overlayVisible: boolean,
 ): boolean {
   if (!platform || platform === 'darwin') return false
+  if (isMobilePlatform(platform)) return false
   if (platform === 'linux') return true
   return !overlayVisible
 }

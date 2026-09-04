@@ -43,6 +43,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import { ShortcutHint } from '@/components/search-command'
 import { GithubMark } from '@/components/github-mark.tsx'
@@ -96,15 +97,34 @@ function stopMenuBubble(event: { stopPropagation(): void }) {
   event.stopPropagation()
 }
 
-function TreeTwist({ open = false, expandable }: { open?: boolean; expandable: boolean }) {
+function TreeTwist({
+  open = false,
+  expandable,
+  onToggle,
+}: {
+  open?: boolean
+  expandable: boolean
+  onToggle?: (event: MouseEvent) => void
+}) {
   if (!expandable) {
     return <span className="size-4 shrink-0 group-data-[collapsible=icon]:hidden" aria-hidden />
   }
 
-  return (
+  const chevron = (
     <ChevronRight
       className={`shrink-0 transition-transform duration-200 group-data-[collapsible=icon]:hidden ${open ? 'rotate-90' : ''}`}
     />
+  )
+
+  if (!onToggle) return chevron
+
+  return (
+    <span
+      className="-m-1 flex shrink-0 items-center p-1 group-data-[collapsible=icon]:hidden"
+      onClick={onToggle}
+    >
+      {chevron}
+    </span>
   )
 }
 
@@ -507,6 +527,7 @@ function FolderNode({
   const canDeleteFolder = Boolean(onDelete) && !githubLocked && !attachedRoot
   const canRenameFolder = Boolean(onRename) && !githubLocked && !attachedRoot
   const canRemoveRoot = Boolean(onRemoveRoot && attachedRoot)
+  const { isMobile, setOpenMobile } = useSidebar()
 
   function handleOpenChange(next: boolean) {
     const change = folderOpenChange(next, hrefForNode(node), route)
@@ -514,9 +535,30 @@ function FolderNode({
     if (change.go) onGo(change.go)
   }
 
+  // On mobile the twist and the folder name do different things: the twist only
+  // expands/collapses the tree, the name navigates and dismisses the drawer.
+  function handleTwist(event: MouseEvent) {
+    event.preventDefault()
+    event.stopPropagation()
+    onOpenChange(!open)
+  }
+
+  function handleName(event: MouseEvent) {
+    event.preventDefault()
+    event.stopPropagation()
+    const href = hrefForNode(node)
+    onOpenChange(true)
+    if (href !== route) onGo(href)
+    setOpenMobile(false)
+  }
+
   const label = (
     <>
-      <TreeTwist open={open} expandable={children.length > 0} />
+      <TreeTwist
+        open={open}
+        expandable={children.length > 0}
+        onToggle={isMobile && children.length > 0 ? handleTwist : undefined}
+      />
       <Icon />
       <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">{node.label}</span>
       {isGithubRoot && (
@@ -588,7 +630,7 @@ function FolderNode({
             tooltip={depth === 0 ? node.label : undefined}
             className={depthPad(depth)}
           >
-            <CollapsibleTrigger>{label}</CollapsibleTrigger>
+            <CollapsibleTrigger onClick={isMobile ? handleName : undefined}>{label}</CollapsibleTrigger>
           </SidebarMenuButton>
         </ItemMenu>
         {nested}
@@ -627,9 +669,12 @@ function PageLink({
     </>
   )
 
+  const { isMobile, setOpenMobile } = useSidebar()
+
   const goToNote = (event: MouseEvent) => {
     event.preventDefault()
     onGo(page.route)
+    if (isMobile) setOpenMobile(false)
   }
 
   return (

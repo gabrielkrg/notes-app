@@ -21,6 +21,8 @@
   "include": [
     "src",
     "desktop",
+    "mobile",
+    "capacitor.config.ts",
     "vite.config.ts",
     "vite.shared.ts",
     "vite-plugin-notes-pages.ts"

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Notes</string>
+    <string name="title_activity_main">Notes</string>
+    <string name="package_name">dev.notes.mobile</string>
+    <string name="custom_url_scheme">dev.notes.mobile</string>
+</resources>
