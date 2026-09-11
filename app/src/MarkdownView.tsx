@@ -71,10 +71,12 @@ function TaskToggle({
 export default function MarkdownView({
   page,
   onNavigate,
+  onOpenSplit,
   onToggleTask,
 }: {
   page: NotePage
   onNavigate: (route: string) => void
+  onOpenSplit?: (route: string) => void
   onToggleTask?: (index: number) => void
 }) {
   const rootRef = useRef(null)
@@ -100,6 +102,12 @@ export default function MarkdownView({
                     href={`#/${target.route}${target.hash}`}
                     onClick={(event) => {
                       event.preventDefault()
+                      // Ctrl/Cmd+click sends the note to the other pane instead
+                      // of taking this one there.
+                      if (onOpenSplit && (event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey) {
+                        onOpenSplit(target.route)
+                        return
+                      }
                       onNavigate(target.route)
                     }}
                   >

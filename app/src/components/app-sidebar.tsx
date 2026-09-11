@@ -50,6 +50,7 @@ import { GithubMark } from '@/components/github-mark.tsx'
 import { GRAPH_ROUTE, hrefForNode, isGraphRoute, compareNavNodes, type NavDirNode, type NavNode, type NavPageNode } from '@/content.ts'
 import { isGithubVirtualPath } from '@/lib/github-notes.ts'
 import { attachedRootForDir } from '@/lib/notes-roots.ts'
+import { centerScrollTop } from '@/lib/sidebar-scroll.ts'
 import { depthPad, dirOpenId, ensureOpenId, folderOpenChange, toggleOpenId, treeLine } from '@/lib/sidebar-tree.ts'
 import type { DeleteTarget } from '@/lib/note-delete.ts'
 import type { NoteKind } from '@/lib/note-name.ts'
@@ -91,6 +92,44 @@ function useOpenFolders(nodes: NavNode[], route: string, token: number) {
   }
 
   return [openIds, setOpen, closeAll] as const
+}
+
+// Keep the active note or folder near the middle of the sidebar so it never
+// scrolls out of sight when the route changes from search, links or shortcuts.
+function useCenterActive(active: boolean) {
+  const ref = useRef<HTMLLIElement>(null)
+
+  useEffect(() => {
+    if (!active) return
+    const item = ref.current
+    if (!item) return
+    const view = item.closest('[data-sidebar="content"]') as HTMLElement | null
+    if (!view) return
+
+    function center() {
+      if (!item || !view) return
+      const row = (item.querySelector('[data-sidebar="menu-button"]') as HTMLElement | null) || item
+      const itemTop = row.getBoundingClientRect().top - view.getBoundingClientRect().top + view.scrollTop
+      const next = centerScrollTop({
+        itemTop,
+        itemHeight: row.offsetHeight,
+        viewHeight: view.clientHeight,
+        scrollHeight: view.scrollHeight,
+        scrollTop: view.scrollTop,
+      })
+      if (next !== null) view.scrollTo({ top: next, behavior: 'smooth' })
+    }
+
+    const frame = requestAnimationFrame(center)
+    // Folders animate open, so measure again once the tree has settled.
+    const settled = setTimeout(center, 250)
+    return () => {
+      cancelAnimationFrame(frame)
+      clearTimeout(settled)
+    }
+  }, [active])
+
+  return ref
 }
 
 function stopMenuBubble(event: { stopPropagation(): void }) {
@@ -194,6 +233,7 @@ type AppSidebarProps = {
   route: string
   bookmarks: string[]
   onGo: (route: string) => void
+  onOpenSplit?: (route: string) => void
   canCreate?: boolean
   canCreateAtRoot?: boolean
   roots?: string[]
@@ -211,6 +251,7 @@ export function AppSidebar({
   route,
   bookmarks,
   onGo,
+  onOpenSplit,
   canCreate = false,
   canCreateAtRoot = canCreate,
   roots = [],
@@ -256,6 +297,7 @@ export function AppSidebar({
               route={route}
               bookmarks={bookmarks}
               onGo={onGo}
+              onOpenSplit={onOpenSplit}
               canCreate={canCreate}
               onCreate={onCreate}
               onDelete={onDelete}
@@ -274,7 +316,7 @@ export function AppSidebar({
 
   return (
     <FolderCollapseContext.Provider value={{ token, collapseAll }}>
-    <Sidebar variant="inset" collapsible="icon">
+    <Sidebar variant="inset" collapsible="offcanvas">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -420,12 +462,18 @@ function CreateRootButton({
   )
 }
 
+/** Ctrl/Cmd-click (on its own) means "open this over in the split pane". */
+function wantsSplit(event: MouseEvent) {
+  return (event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey
+}
+
 function NavNode({
   node,
   depth,
   route,
   bookmarks,
   onGo,
+  onOpenSplit,
   open,
   onOpenChange,
   canCreate,
@@ -441,6 +489,7 @@ function NavNode({
   route: string
   bookmarks: string[]
   onGo: (route: string) => void
+  onOpenSplit?: (route: string) => void
   open: boolean
   onOpenChange: (open: boolean) => void
   canCreate?: boolean
@@ -459,6 +508,7 @@ function NavNode({
         route={route}
         bookmarks={bookmarks}
         onGo={onGo}
+        onOpenSplit={onOpenSplit}
         onDelete={onDelete}
         onRename={onRename}
       />
@@ -472,6 +522,7 @@ function NavNode({
       route={route}
       bookmarks={bookmarks}
       onGo={onGo}
+      onOpenSplit={onOpenSplit}
       open={open}
       onOpenChange={onOpenChange}
       canCreate={canCreate}
@@ -491,6 +542,7 @@ function FolderNode({
   route,
   bookmarks,
   onGo,
+  onOpenSplit,
   open,
   onOpenChange,
   canCreate,
@@ -506,6 +558,7 @@ function FolderNode({
   route: string
   bookmarks: string[]
   onGo: (route: string) => void
+  onOpenSplit?: (route: string) => void
   open: boolean
   onOpenChange: (open: boolean) => void
   canCreate?: boolean
@@ -528,6 +581,7 @@ function FolderNode({
   const canRenameFolder = Boolean(onRename) && !githubLocked && !attachedRoot
   const canRemoveRoot = Boolean(onRemoveRoot && attachedRoot)
   const { isMobile, setOpenMobile } = useSidebar()
+  const itemRef = useCenterActive(active)
 
   function handleOpenChange(next: boolean) {
     const change = folderOpenChange(next, hrefForNode(node), route)
@@ -541,6 +595,18 @@ function FolderNode({
     event.preventDefault()
     event.stopPropagation()
     onOpenChange(!open)
+  }
+
+  // Ctrl/Cmd-click sends the folder's page to the split pane and leaves the
+  // twist alone; preventDefault keeps the Collapsible from toggling.
+  function handleTriggerClick(event: MouseEvent) {
+    if (onOpenSplit && wantsSplit(event)) {
+      event.preventDefault()
+      event.stopPropagation()
+      onOpenSplit(hrefForNode(node))
+      return
+    }
+    if (isMobile) handleName(event)
   }
 
   function handleName(event: MouseEvent) {
@@ -578,6 +644,7 @@ function FolderNode({
             route={route}
             bookmarks={bookmarks}
             onGo={onGo}
+            onOpenSplit={onOpenSplit}
             canCreate={canCreate}
             onCreate={onCreate}
             onDelete={onDelete}
@@ -595,7 +662,7 @@ function FolderNode({
 
   return (
     <Collapsible asChild open={open} onOpenChange={handleOpenChange}>
-      <SidebarMenuItem className="group/collapsible">
+      <SidebarMenuItem ref={itemRef} className="group/collapsible">
         <ItemMenu
           onCreate={
             canCreate && !githubLocked ? (kind: NoteKind) => onCreate?.({ kind, parent: node.path }) : undefined
@@ -630,7 +697,7 @@ function FolderNode({
             tooltip={depth === 0 ? node.label : undefined}
             className={depthPad(depth)}
           >
-            <CollapsibleTrigger onClick={isMobile ? handleName : undefined}>{label}</CollapsibleTrigger>
+            <CollapsibleTrigger onClick={handleTriggerClick}>{label}</CollapsibleTrigger>
           </SidebarMenuButton>
         </ItemMenu>
         {nested}
@@ -645,6 +712,7 @@ function PageLink({
   route,
   bookmarks,
   onGo,
+  onOpenSplit,
   onDelete,
   onRename,
 }: {
@@ -653,6 +721,7 @@ function PageLink({
   route: string
   bookmarks: string[]
   onGo: (route: string) => void
+  onOpenSplit?: (route: string) => void
   onDelete?: (target: DeleteTarget) => void
   onRename?: (target: RenameTarget) => void
 }) {
@@ -670,15 +739,20 @@ function PageLink({
   )
 
   const { isMobile, setOpenMobile } = useSidebar()
+  const itemRef = useCenterActive(active)
 
   const goToNote = (event: MouseEvent) => {
     event.preventDefault()
+    if (onOpenSplit && wantsSplit(event)) {
+      onOpenSplit(page.route)
+      return
+    }
     onGo(page.route)
     if (isMobile) setOpenMobile(false)
   }
 
   return (
-    <SidebarMenuItem>
+    <SidebarMenuItem ref={itemRef}>
       <ItemMenu
         onRename={
           onRename && !page.readonly

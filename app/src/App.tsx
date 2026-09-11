@@ -1,4 +1,14 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from 'react'
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+} from 'react'
 import {
   Bookmark,
   ChevronLeft,
@@ -54,7 +64,7 @@ import { PlainText, type PlainTextHandle } from '@/components/plain-text'
 import { FindBar } from '@/components/find-bar'
 import { HtmlPreview, type HtmlPreviewHandle } from '@/components/html-preview'
 import { rewriteHtmlPreview } from '@/lib/html-preview.ts'
-import { SearchCommand, SearchTrigger } from '@/components/search-command'
+import { SearchCommand, SearchTrigger, ShortcutHint } from '@/components/search-command'
 import { WindowControls } from '@/components/window-controls'
 import { Kbd } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -67,7 +77,7 @@ import { isDesktop } from '@/lib/desktop'
 import type { CreatedNote } from '@/lib/desktop.ts'
 import { fetchBrowserGithubNotes } from '@/lib/github-client.ts'
 import { isGithubVirtualPath, topLevelLabels } from '@/lib/github-notes.ts'
-import { CtrlKChord, isCancelEditShortcut, isEditNoteShortcut, isHtmlFullscreenShortcut, isNewNoteShortcut, isReloadFoldersShortcut } from '@/lib/key-chords'
+import { CtrlKChord, isCancelEditShortcut, isEditNoteShortcut, isHtmlFullscreenShortcut, isNewNoteShortcut, isReloadFoldersShortcut, isSettingsShortcut } from '@/lib/key-chords'
 import { isMobilePlatform } from '@/lib/title-bar.ts'
 import { clearFindHighlight, collectText, revealInElement } from '@/lib/find-dom.ts'
 import {
@@ -83,6 +93,13 @@ import type { DeleteTarget } from '@/lib/note-delete.ts'
 import type { NoteKind } from '@/lib/note-name.ts'
 import type { RenameTarget } from '@/lib/note-rename.ts'
 import { fileKind } from '@/lib/note-name.ts'
+import { SplitPane } from '@/components/split-pane'
+import {
+  formatSplitWidth,
+  loadSplitWidth,
+  saveSplitWidth,
+  splitWidthFromPointer,
+} from '@/lib/split-width.ts'
 import { toggleTaskInNote } from '@/lib/md-task.ts'
 import { splitFrontmatter } from '@/lib/md-wysiwyg.ts'
 import MarkdownView from './MarkdownView.tsx'
@@ -116,6 +133,10 @@ type CreateState = { kind: NoteKind; parent: string }
 const PAGE_SHELL = 'mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8'
 const LAST_KEY = storageKey('last')
 
+function underPath(route: string, path: string) {
+  return route === path || route.startsWith(`${path}/`)
+}
+
 function noteRelPath(file: string) {
   return file
 }
@@ -140,7 +161,7 @@ export default function App() {
   const [loadError, setLoadError] = useState('')
   const [githubError, setGithubError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
-  const [route, setRoute] = useState(() => parseHash())
+  const [routes, setRoutes] = useState(() => parseHash())
   const [searchOpen, setSearchOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
@@ -152,7 +173,9 @@ export default function App() {
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [bookmarks, setBookmarks] = useState<string[]>(readBookmarks)
+  const [splitWidth, setSplitWidth] = useState(() => loadSplitWidth(localStorage))
   const contentRef = useRef<HTMLDivElement>(null)
+  const splitRowRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<NoteEditorHandle | CodeEditorHandle | PlainTextHandle | null>(null)
   const chordRef = useRef<CtrlKChord | null>(null)
   const noteRawRef = useRef('')
@@ -162,8 +185,12 @@ export default function App() {
   const tree = content.navTree
   const defaultLabel = labelForRoot(roots, defaultRoot)
   const canCreateAtRoot = desktop && (Boolean(defaultLabel) || roots.length === 0)
+  const route = routes.route
+  const split = routes.split
   const showingGraph = isGraphRoute(route)
   const page = showingGraph ? null : pageByRoute(content.pages, route)
+  const splitPage = split ? pageByRoute(content.pages, split) : null
+  const showSplit = Boolean(split) && !showingGraph && !loading && !loadError
   const folderOverview = !page && !showingGraph ? dirForRoute(tree, route) : null
   const showingDashboard = !page && !showingGraph && !folderOverview
   const section = sectionForRoute(tree, route)
@@ -237,7 +264,7 @@ export default function App() {
   }, [desktop])
 
   useEffect(() => {
-    const onHash = () => setRoute(parseHash())
+    const onHash = () => setRoutes(parseHash())
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
@@ -258,6 +285,12 @@ export default function App() {
 
   useEffect(() => {
     function onKey(event: globalThis.KeyboardEvent) {
+      if (isSettingsShortcut(event)) {
+        event.preventDefault()
+        if (!confirmLeave()) return
+        setSettingsOpen(true)
+        return
+      }
       if (isReloadFoldersShortcut(event)) {
         event.preventDefault()
         void refreshFolders()
@@ -330,12 +363,55 @@ export default function App() {
     return window.confirm('Discard unsaved changes?')
   }
 
+  function applyRoutes(nextRoute: string, nextSplit = split) {
+    const cleanSplit = nextSplit === nextRoute ? '' : nextSplit
+    setHash(nextRoute, cleanSplit)
+    setRoutes({ route: nextRoute, split: cleanSplit })
+  }
+
   function go(nextRoute: string) {
     if (!confirmLeave()) return
     setEditing(false)
     setDirty(false)
-    setHash(nextRoute)
-    setRoute(nextRoute)
+    applyRoutes(nextRoute)
+  }
+
+  function openSplit(nextSplit: string) {
+    if (isGraphRoute(nextSplit) || nextSplit === route) return
+    applyRoutes(route, nextSplit)
+  }
+
+  function closeSplit() {
+    applyRoutes(route, '')
+  }
+
+  function startSplitDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    const row = splitRowRef.current
+    if (!row) return
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = splitWidth
+    const containerPx = row.getBoundingClientRect().width
+    const widthAt = (clientX: number) =>
+      splitWidthFromPointer(startWidth, clientX - startX, containerPx)
+    const onMove = (moved: globalThis.PointerEvent) => setSplitWidth(widthAt(moved.clientX))
+    const onUp = (up: globalThis.PointerEvent) => {
+      const next = widthAt(up.clientX)
+      setSplitWidth(next)
+      saveSplitWidth(localStorage, next)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
+  function swapPanes() {
+    if (!split) return
+    if (!confirmLeave()) return
+    setEditing(false)
+    setDirty(false)
+    applyRoutes(split, route)
   }
 
 function startEditing() {
@@ -419,24 +495,22 @@ function startEditing() {
     if (!confirmLeave()) return
     const labeled = labelNotesRoots(roots)
     const removed = labeled.find((item) => item.root === dir)
-    const leave =
-      roots.length <= 1 ||
-      (removed && (route === removed.label || route.startsWith(`${removed.label}/`)))
+    const gone = (target: string) =>
+      Boolean(removed) && Boolean(target) && underPath(target, removed!.label)
+    const leave = roots.length <= 1 || gone(route)
     await window.desktop.setNotesRoots(roots.filter((root) => root !== dir))
     setEditing(false)
     setDirty(false)
     await reloadNotes()
-    if (leave) {
-      setHash('')
-      setRoute('')
-    }
+    const nextSplit = gone(split) ? '' : split
+    if (leave) applyRoutes('', nextSplit)
+    else if (nextSplit !== split) applyRoutes(route, nextSplit)
   }
 
   async function handleCreated(created: CreatedNote) {
     await reloadNotes()
     const nextRoute = routeFor(created.file)
-    setHash(nextRoute)
-    setRoute(nextRoute)
+    applyRoutes(nextRoute)
     setDraft(created.raw)
     setDirty(false)
     setEditing(true)
@@ -470,36 +544,37 @@ function startEditing() {
     setEditing(false)
     setDirty(false)
     await reloadNotes()
-    if (target.kind === 'note' && result.file && page?.file === target.file) {
-      const nextRoute = routeFor(result.file)
-      setHash(nextRoute)
-      setRoute(nextRoute)
-    } else if (
-      target.kind === 'folder' &&
-      result.path &&
-      (route === target.path || route.startsWith(`${target.path}/`))
-    ) {
-      const nextRoute = `${result.path}${route.slice(target.path.length)}`
-      setHash(nextRoute)
-      setRoute(nextRoute)
+    const renamed = (current: string, currentFile: string | undefined) => {
+      if (target.kind === 'note' && result.file && currentFile === target.file) {
+        return routeFor(result.file)
+      }
+      if (target.kind === 'folder' && result.path && current && underPath(current, target.path)) {
+        return `${result.path}${current.slice(target.path.length)}`
+      }
+      return current
     }
+    const nextRoute = renamed(route, page?.file)
+    const nextSplit = renamed(split, splitPage?.file)
+    if (nextRoute !== route || nextSplit !== split) applyRoutes(nextRoute, nextSplit)
     setRenameTarget(null)
   }
 
   async function handleDeleted(target: DeleteTarget) {
     const folderPath = target?.kind === 'folder' ? target.path : ''
     const deletedFile = target?.kind === 'note' ? target.file : ''
-    const shouldLeave =
-      (folderPath && (route === folderPath || route.startsWith(`${folderPath}/`))) ||
-      (deletedFile && page?.file === deletedFile)
+    const dropped = (current: string, currentFile: string | undefined) =>
+      Boolean(
+        (folderPath && current && underPath(current, folderPath)) ||
+          (deletedFile && currentFile === deletedFile),
+      )
+    const shouldLeave = dropped(route, page?.file)
 
     setEditing(false)
     setDirty(false)
     await reloadNotes()
-    if (shouldLeave) {
-      setHash('')
-      setRoute('')
-    }
+    const nextSplit = dropped(split, splitPage?.file) ? '' : split
+    if (shouldLeave) applyRoutes('', nextSplit)
+    else if (nextSplit !== split) applyRoutes(route, nextSplit)
     setDeleteTarget(null)
   }
 
@@ -512,6 +587,52 @@ function startEditing() {
           <header className="titlebar relative z-20 flex shrink-0 items-stretch border-b bg-background">
             <div className="titlebar-inner flex min-w-0 flex-1 items-center gap-2">
               <SidebarTrigger className="-ml-1" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <SearchTrigger onOpen={() => setSearchOpen(true)} />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Search notes
+                  <ShortcutHint />
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Reload folders"
+                    aria-keyshortcuts="F5"
+                    disabled={refreshing}
+                    onClick={() => void refreshFolders()}
+                  >
+                    <RefreshCw className={refreshing ? 'animate-spin' : undefined} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Reload folders
+                  <Kbd>F5</Kbd>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Settings"
+                    onClick={() => {
+                      if (!confirmLeave()) return
+                      setSettingsOpen(true)
+                    }}
+                  >
+                    <Settings />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Settings
+                  <ShortcutHint keyLabel="," />
+                </TooltipContent>
+              </Tooltip>
               <Breadcrumb className="min-w-0 flex-1">
                 <BreadcrumbList>
                   <BreadcrumbItem className="hidden sm:block">
@@ -563,39 +684,6 @@ function startEditing() {
                   })}
                 </BreadcrumbList>
               </Breadcrumb>
-              <SearchTrigger
-                onOpen={() => setSearchOpen(true)}
-                className="w-36 shrink-0 sm:w-56"
-              />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label="Reload folders"
-                    aria-keyshortcuts="F5"
-                    disabled={refreshing}
-                    onClick={() => void refreshFolders()}
-                  >
-                    <RefreshCw className={refreshing ? 'animate-spin' : undefined} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Reload folders
-                  <Kbd>F5</Kbd>
-                </TooltipContent>
-              </Tooltip>
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Settings"
-                onClick={() => {
-                  if (!confirmLeave()) return
-                  setSettingsOpen(true)
-                }}
-              >
-                <Settings />
-              </Button>
               <WindowControls />
             </div>
           </header>
@@ -605,6 +693,7 @@ function startEditing() {
             route={route}
             bookmarks={bookmarks}
             onGo={go}
+            onOpenSplit={openSplit}
             canCreate={desktop}
             canCreateAtRoot={canCreateAtRoot}
             roots={roots}
@@ -646,10 +735,17 @@ function startEditing() {
             }}
           />
           <SidebarInset className="min-h-0 overflow-hidden">
-            <div className="flex min-h-0 flex-1">
+            <div ref={splitRowRef} className="flex min-h-0 flex-1">
               <div
                 ref={contentRef}
-                className={`relative min-h-0 min-w-0 flex-1 ${showingGraph ? 'overflow-hidden' : 'overflow-auto'}`}
+                className={`relative min-h-0 min-w-0 ${
+                  showSplit ? 'w-full flex-1 md:w-(--split-main) md:flex-none' : 'flex-1'
+                } ${showingGraph ? 'overflow-hidden' : 'overflow-auto'}`}
+                style={
+                  showSplit
+                    ? ({ '--split-main': formatSplitWidth(splitWidth) } as CSSProperties)
+                    : undefined
+                }
               >
                 {showingGraph ? (
                   <GlobalGraph pages={content.pages} onGo={go} />
@@ -684,6 +780,7 @@ function startEditing() {
                     prev={prev}
                     next={next}
                     onGo={go}
+                    onOpenSplit={openSplit}
                     desktop={desktop}
                     notesRoots={roots}
                     editing={editing}
@@ -755,6 +852,28 @@ function startEditing() {
                   />
                 )}
               </div>
+              {showSplit ? (
+                <>
+                  <div
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label="Resize split view"
+                    className="hidden w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/40 md:block"
+                    onPointerDown={startSplitDrag}
+                  />
+                  <div className="hidden min-h-0 min-w-0 flex-1 md:flex">
+                    <SplitPane
+                      page={splitPage}
+                      route={split}
+                      files={previewFiles}
+                      onGo={go}
+                      onOpenSplit={openSplit}
+                      onSwap={swapPanes}
+                      onClose={closeSplit}
+                    />
+                  </div>
+                </>
+              ) : null}
             </div>
           </SidebarInset>
           </div>
@@ -964,6 +1083,7 @@ function Article({
   prev,
   next,
   onGo,
+  onOpenSplit,
   desktop,
   notesRoots = [],
   editing,
@@ -989,6 +1109,7 @@ function Article({
   prev: NotePage | null
   next: NotePage | null
   onGo: (route: string) => void
+  onOpenSplit?: (route: string) => void
   desktop: boolean
   notesRoots?: string[]
   editing: boolean
@@ -1387,7 +1508,13 @@ function Article({
           {kind === 'text' ? (
             <PlainText key={page.file} ref={viewFindRef} value={page.body} readOnly />
           ) : (
-            <MarkdownView key={page.file} page={page} onNavigate={onGo} onToggleTask={onToggleTask} />
+            <MarkdownView
+              key={page.file}
+              page={page}
+              onNavigate={onGo}
+              onOpenSplit={onOpenSplit}
+              onToggleTask={onToggleTask}
+            />
           )}
         </div>
       )}

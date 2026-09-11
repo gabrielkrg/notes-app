@@ -13,6 +13,7 @@
 @custom-variant dark (&:is(.dark *));
 
 .typeset-docs {
+  --typeset-link: var(--link);
   --typeset-font-body: var(--font-sans);
   --typeset-font-heading: var(--font-heading);
   --typeset-font-mono: var(--font-mono);
@@ -101,6 +102,13 @@
 
 :root {
     color-scheme: light;
+    /*
+     * Links borrow the palette's highlight hue, darkened enough to read as
+     * body text. The relative-color form is the real value; the flat one
+     * above it is the fallback for engines without `oklch(from ...)`.
+     */
+    --link: oklch(0.52 0.16 95);
+    --link: oklch(from var(--highlight) 0.52 calc(c * 1.05) h);
     --font-sans: var(--font-space-grotesk);
     --font-heading: var(--font-merriweather);
     --font-size-base: 18px;
@@ -142,6 +150,8 @@
 
 .dark {
     color-scheme: dark;
+    --link: oklch(0.82 0.16 95);
+    --link: oklch(from var(--highlight) 0.82 c h);
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
@@ -456,6 +466,64 @@
     --sidebar-ring: oklch(0.52 0.05 265);
 }
 
+:root[data-palette='abyss'] {
+    --background: oklch(0.98 0.006 250);
+    --foreground: oklch(0.23 0.022 258);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.23 0.022 258);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.23 0.022 258);
+    --primary: oklch(0.52 0.13 252);
+    --primary-foreground: oklch(0.99 0.003 250);
+    --secondary: oklch(0.945 0.010 250);
+    --secondary-foreground: oklch(0.27 0.026 258);
+    --muted: oklch(0.945 0.010 250);
+    --muted-foreground: oklch(0.52 0.022 254);
+    --accent: oklch(0.925 0.022 250);
+    --accent-foreground: oklch(0.32 0.06 252);
+    --border: oklch(0.89 0.013 250);
+    --input: oklch(0.89 0.013 250);
+    --ring: oklch(0.60 0.11 250);
+    --sidebar: oklch(0.96 0.010 250);
+    --sidebar-foreground: oklch(0.23 0.022 258);
+    --sidebar-primary: oklch(0.52 0.13 252);
+    --sidebar-primary-foreground: oklch(0.99 0.003 250);
+    --sidebar-accent: oklch(0.915 0.024 250);
+    --sidebar-accent-foreground: oklch(0.32 0.06 252);
+    --sidebar-border: oklch(0.89 0.013 250);
+    --sidebar-ring: oklch(0.60 0.11 250);
+    --highlight: oklch(0.85 0.12 225);
+}
+
+:root[data-palette='abyss'].dark {
+    --background: oklch(0.150 0.020 258);
+    --foreground: oklch(0.90 0.016 250);
+    --card: oklch(0.185 0.024 258);
+    --card-foreground: oklch(0.90 0.016 250);
+    --popover: oklch(0.185 0.024 258);
+    --popover-foreground: oklch(0.90 0.016 250);
+    --primary: oklch(0.66 0.125 250);
+    --primary-foreground: oklch(0.97 0.005 250);
+    --secondary: oklch(0.225 0.028 258);
+    --secondary-foreground: oklch(0.90 0.016 250);
+    --muted: oklch(0.215 0.026 258);
+    --muted-foreground: oklch(0.65 0.025 252);
+    --accent: oklch(0.26 0.045 253);
+    --accent-foreground: oklch(0.88 0.045 248);
+    --border: oklch(0.29 0.035 255);
+    --input: oklch(0.275 0.032 255);
+    --ring: oklch(0.58 0.10 250);
+    --sidebar: oklch(0.128 0.020 258);
+    --sidebar-foreground: oklch(0.88 0.016 250);
+    --sidebar-primary: oklch(0.48 0.115 252);
+    --sidebar-primary-foreground: oklch(0.97 0.005 250);
+    --sidebar-accent: oklch(0.245 0.042 253);
+    --sidebar-accent-foreground: oklch(0.88 0.045 248);
+    --sidebar-border: oklch(0.255 0.030 255);
+    --sidebar-ring: oklch(0.58 0.10 250);
+    --highlight: oklch(0.68 0.12 225);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -474,6 +542,36 @@
   #root {
     height: 100%;
     overflow: hidden;
+    }
+
+  /* Scrollbars keep to themselves: no arrow buttons, no track, and a thin thumb
+     that only firms up while the pointer is over the area it belongs to. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--foreground) 12%, transparent) transparent;
+    }
+  *:hover {
+    scrollbar-color: color-mix(in oklab, var(--foreground) 26%, transparent) transparent;
+    }
+  *::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+    }
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+    }
+  *::-webkit-scrollbar-button {
+    display: none;
+    }
+  *::-webkit-scrollbar-thumb {
+    border: 5px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
+    background-color: color-mix(in oklab, var(--foreground) 12%, transparent);
+    }
+  *:hover::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklab, var(--foreground) 26%, transparent);
     }
 }
 

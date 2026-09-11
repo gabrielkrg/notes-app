@@ -115,3 +115,14 @@ export function isCancelEditShortcut(event: {
   return event.key === 'Escape'
 }
 
+export function isSettingsShortcut(event: {
+  key?: string
+  metaKey?: boolean
+  ctrlKey?: boolean
+  altKey?: boolean
+  shiftKey?: boolean
+}): boolean {
+  if (event.altKey || event.shiftKey) return false
+  if (!(event.metaKey || event.ctrlKey)) return false
+  return event.key === ','
+}

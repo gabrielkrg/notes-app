@@ -55,6 +55,7 @@ const SECTIONS: {
       'slate',
       'dusk',
       'midnight',
+      'abyss',
       'plex',
       'source',
       'newsreader',

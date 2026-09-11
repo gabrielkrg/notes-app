@@ -77,6 +77,24 @@ describe('rehypeAnnotate', () => {
     assert.equal(found[1].children.length, 1)
   })
 
+  it('still marks the quote when the stored prefix no longer matches', () => {
+    const tree = el('root', [el('p', [text('alpha beta gamma')])])
+    rehypeAnnotate([{ ...highlight('beta'), prefix: 'alpha ?' }])(tree)
+    const found = marks(tree)
+    assert.equal(found.length, 1)
+    assert.deepEqual(found[0].children, [text('beta')])
+  })
+
+  it('prefers the occurrence whose prefix and suffix both match', () => {
+    const tree = el('root', [el('p', [text('one hit here. two hit there.')])])
+    rehypeAnnotate([{ ...highlight('hit'), prefix: 'two', suffix: 'there' }])(tree)
+    const found = marks(tree)
+    assert.equal(found.length, 1)
+    const paragraph = (tree as HastElement).children[0] as HastElement
+    const before = paragraph.children[paragraph.children.indexOf(found[0]) - 1] as HastText
+    assert.equal(before.value, 'one hit here. two ')
+  })
+
   it('still wraps a plain phrase in one mark', () => {
     const tree = el('root', [el('p', [text('Hello world from notes.')])])
     apply(tree, 'Hello world')

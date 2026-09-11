@@ -600,3 +600,35 @@ export function groupLinkCounts(graph: NoteGraph): Map<string, number> {
   }
   return counts
 }
+
+export type RouteHash = {
+  route: string
+  split: string
+}
+
+function trimRoute(raw: string): string {
+  return raw.replace(/\/$/, '')
+}
+
+function decodeRoute(raw: string): string {
+  try {
+    return trimRoute(decodeURIComponent(raw))
+  } catch {
+    return trimRoute(raw)
+  }
+}
+
+export function parseRouteHash(hash: string): RouteHash {
+  const raw = String(hash).replace(/^#\/?/, '')
+  const cut = raw.indexOf('?')
+  const route = decodeRoute(cut === -1 ? raw : raw.slice(0, cut))
+  const query = cut === -1 ? '' : raw.slice(cut + 1)
+  const split = decodeRoute(new URLSearchParams(query).get('split') || '')
+  return { route, split: split && split !== route ? split : '' }
+}
+
+export function formatRouteHash(route: string, split = ''): string {
+  const base = `#/${route}`
+  if (!split || split === route) return base
+  return `${base}?split=${encodeURIComponent(split)}`
+}

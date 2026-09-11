@@ -64,10 +64,18 @@ describe('applyFontSize', () => {
 
 describe('PALETTES', () => {
   it('pairs each theme with a default typeface', () => {
-    assert.equal(PALETTES.length, 6)
+    assert.equal(PALETTES.length, 7)
     assert.deepEqual(
       PALETTES.map((palette) => palette.typeface),
-      ['grotesk-merriweather', 'literata', 'mono-grotesk', 'grotesk', 'literata-grotesk', 'merriweather-mono'],
+      [
+        'grotesk-merriweather',
+        'literata',
+        'mono-grotesk',
+        'grotesk',
+        'literata-grotesk',
+        'merriweather-mono',
+        'mono-grotesk',
+      ],
     )
   })
 })

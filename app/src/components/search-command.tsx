@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronRight, CornerDownLeft, Search } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import {
   Command,
   CommandDialog,
@@ -20,7 +21,6 @@ import {
   shouldSearchContent,
   type ContentHit,
 } from '@/lib/search-notes.ts'
-import { cn } from '@/lib/utils'
 
 function useIsMac() {
   const [mac, setMac] = useState(() =>
@@ -44,18 +44,17 @@ export function ShortcutHint({ className, keyLabel = 'K' }: { className?: string
 
 export function SearchTrigger({ onOpen, className }: { onOpen: () => void; className?: string }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon"
+      aria-label="Search notes"
+      aria-keyshortcuts="Control+K"
       onClick={onOpen}
-      className={cn(
-        'inline-flex h-8 w-full items-center gap-2 rounded-full border border-input bg-muted/50 px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted',
-        className,
-      )}
+      className={className}
     >
-      <Search className="size-4 shrink-0" />
-      <span className="flex-1 truncate text-left">Search notes…</span>
-      <ShortcutHint />
-    </button>
+      <Search />
+    </Button>
   )
 }
 

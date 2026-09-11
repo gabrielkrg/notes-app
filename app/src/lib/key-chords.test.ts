@@ -8,6 +8,7 @@ import {
   isHtmlFullscreenShortcut,
   isNewNoteShortcut,
   isReloadFoldersShortcut,
+  isSettingsShortcut,
 } from './key-chords.ts'
 
 function keyEvent({ key, ctrlKey = false, metaKey = false }: { key: string; ctrlKey?: boolean; metaKey?: boolean }) {
@@ -137,5 +138,17 @@ describe('isCancelEditShortcut', () => {
     assert.equal(isCancelEditShortcut(keyEvent({ key: 'Escape', ctrlKey: true })), false)
     assert.equal(isCancelEditShortcut(keyEvent({ key: 'Escape', metaKey: true })), false)
     assert.equal(isCancelEditShortcut(keyEvent({ key: 'e' })), false)
+  })
+})
+
+describe('isSettingsShortcut', () => {
+  it('matches Ctrl+, and Cmd+,', () => {
+    assert.equal(isSettingsShortcut(keyEvent({ key: ',', ctrlKey: true })), true)
+    assert.equal(isSettingsShortcut(keyEvent({ key: ',', metaKey: true })), true)
+  })
+
+  it('ignores comma without a modifier and other keys', () => {
+    assert.equal(isSettingsShortcut(keyEvent({ key: ',' })), false)
+    assert.equal(isSettingsShortcut(keyEvent({ key: 'k', ctrlKey: true })), false)
   })
 })

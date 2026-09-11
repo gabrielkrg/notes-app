@@ -110,10 +110,10 @@
 
     /* Links. */
     &:where(a) {
-      color: inherit;
+      color: var(--typeset-link, inherit);
       font-weight: 500;
       text-decoration-line: underline;
-      text-decoration-color: color-mix(in oklab, currentColor 30%, transparent);
+      text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
     }
     &:where(a:hover) {
       text-decoration-color: currentColor;

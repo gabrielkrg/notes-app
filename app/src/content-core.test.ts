@@ -6,11 +6,13 @@ import {
   buildNoteGraph,
   dirForIndex,
   dirForRoute,
+  formatRouteHash,
   groupLinkCounts,
   hoistNavRoot,
   hrefForNode,
   isGraphRoute,
   overviewNodes,
+  parseRouteHash,
   pageByRoute,
   resolveMdHref,
   routeFor,
@@ -513,5 +515,70 @@ describe('overviewNodes', () => {
         .sort(),
       ['notes/laravel', 'notes/php'],
     )
+  })
+})
+
+describe('parseRouteHash', () => {
+  it('reads a plain single-pane hash', () => {
+    assert.deepEqual(parseRouteHash('#/notes/alpha'), { route: 'notes/alpha', split: '' })
+  })
+
+  it('tolerates a missing leading slash and an empty hash', () => {
+    assert.deepEqual(parseRouteHash('#notes/alpha'), { route: 'notes/alpha', split: '' })
+    assert.deepEqual(parseRouteHash(''), { route: '', split: '' })
+    assert.deepEqual(parseRouteHash('#/'), { route: '', split: '' })
+  })
+
+  it('drops a trailing slash on both routes', () => {
+    assert.deepEqual(parseRouteHash('#/notes/alpha/?split=notes%2Fbeta%2F'), {
+      route: 'notes/alpha',
+      split: 'notes/beta',
+    })
+  })
+
+  it('decodes the split route', () => {
+    assert.deepEqual(parseRouteHash('#/notes/alpha?split=notes%2Fbeta%20two'), {
+      route: 'notes/alpha',
+      split: 'notes/beta two',
+    })
+  })
+
+  it('ignores an empty or absent split', () => {
+    assert.deepEqual(parseRouteHash('#/notes/alpha?split='), { route: 'notes/alpha', split: '' })
+    assert.deepEqual(parseRouteHash('#/notes/alpha?other=1'), { route: 'notes/alpha', split: '' })
+  })
+
+  it('ignores a split equal to the main route', () => {
+    assert.deepEqual(parseRouteHash('#/notes/alpha?split=notes%2Falpha'), {
+      route: 'notes/alpha',
+      split: '',
+    })
+  })
+})
+
+describe('formatRouteHash', () => {
+  it('formats a single pane', () => {
+    assert.equal(formatRouteHash('notes/alpha'), '#/notes/alpha')
+    assert.equal(formatRouteHash(''), '#/')
+  })
+
+  it('encodes the split route as a query parameter', () => {
+    assert.equal(formatRouteHash('notes/alpha', 'notes/beta'), '#/notes/alpha?split=notes%2Fbeta')
+  })
+
+  it('omits a split that matches the main route', () => {
+    assert.equal(formatRouteHash('notes/alpha', 'notes/alpha'), '#/notes/alpha')
+  })
+
+  it('round-trips through parseRouteHash', () => {
+    const cases: [string, string][] = [
+      ['notes/alpha', ''],
+      ['notes/alpha', 'notes/beta'],
+      ['a b/c', 'd?e/f'],
+      ['', 'notes/beta'],
+    ]
+    for (const [route, split] of cases) {
+      assert.deepEqual(parseRouteHash(formatRouteHash(route, split)), { route, split })
+    }
   })
 })

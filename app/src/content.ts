@@ -1,5 +1,5 @@
 import rawPages from 'virtual:notes-pages'
-import { buildContent } from './content-core.ts'
+import { buildContent, formatRouteHash, parseRouteHash, type RouteHash } from './content-core.ts'
 
 export const bundledRawPages = rawPages
 export const bundledContent = buildContent(rawPages)
@@ -28,6 +28,8 @@ export {
   neighbors,
   pageByRoute,
   parseFrontmatter,
+  formatRouteHash,
+  parseRouteHash,
   resolveMdHref,
   routeFor,
   sectionForRoute,
@@ -44,15 +46,15 @@ export type {
   NoteGraph,
   NotePage,
   Pages,
+  RouteHash,
 } from './content-core.ts'
 
-export function parseHash(): string {
-  const raw = window.location.hash.replace(/^#\/?/, '')
-  return decodeURIComponent(raw).replace(/\/$/, '')
+export function parseHash(): RouteHash {
+  return parseRouteHash(window.location.hash)
 }
 
-export function setHash(route: string): void {
-  const next = route ? `#/${route}` : '#/'
+export function setHash(route: string, split = ''): void {
+  const next = formatRouteHash(route, split)
   if (window.location.hash !== next) {
     window.location.hash = next
   }

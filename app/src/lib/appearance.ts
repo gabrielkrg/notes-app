@@ -84,6 +84,7 @@ export const PALETTES = [
   { id: 'slate', label: 'Slate', swatch: '#7a8fa3', typeface: 'grotesk' },
   { id: 'dusk', label: 'Dusk', swatch: '#c48b8b', typeface: 'literata-grotesk' },
   { id: 'midnight', label: 'Midnight', swatch: '#3d5a80', typeface: 'merriweather-mono' },
+  { id: 'abyss', label: 'Abyss', swatch: '#4a7fd4', typeface: 'mono-grotesk' },
 ] as const
 
 export type Palette = (typeof PALETTES)[number]['id']
@@ -116,6 +117,10 @@ const TITLE_BAR: Record<Palette, { light: TitleBarOverlay; dark: TitleBarOverlay
   midnight: {
     light: { color: '#e8eef6', symbolColor: '#1a2438', height: TITLE_BAR_HEIGHT },
     dark: { color: '#121826', symbolColor: '#dce6f4', height: TITLE_BAR_HEIGHT },
+  },
+  abyss: {
+    light: { color: '#f4f6f9', symbolColor: '#1b2330', height: TITLE_BAR_HEIGHT },
+    dark: { color: '#0c111c', symbolColor: '#c8d3e4', height: TITLE_BAR_HEIGHT },
   },
 }
 

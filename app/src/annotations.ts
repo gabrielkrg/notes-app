@@ -111,16 +111,20 @@ function locateQuote(haystack: string, annotation: Annotation): { start: number;
   const suffix = compact(annotation.suffix).trim()
   const global = new RegExp(pattern.source, 'g')
   let match: RegExpExecArray | null
+  let best: { start: number; end: number; score: number } | null = null
   while ((match = global.exec(haystack))) {
-    const before = compact(haystack.slice(0, match.index)).trimEnd()
-    const after = compact(haystack.slice(match.index + match[0].length)).trimStart()
-    const prefixOk = !prefix || before.endsWith(prefix)
-    const suffixOk = !suffix || after.startsWith(suffix)
-    if (prefixOk && suffixOk) {
-      return { start: match.index, end: match.index + match[0].length }
-    }
+    const range = { start: match.index, end: match.index + match[0].length }
+    const before = compact(haystack.slice(0, range.start)).trimEnd()
+    const after = compact(haystack.slice(range.end)).trimStart()
+    const score = (!prefix || before.endsWith(prefix) ? 1 : 0) + (!suffix || after.startsWith(suffix) ? 1 : 0)
+    if (score === 2) return range
+    // A stored prefix or suffix can drift (the page around the quote changed, or it
+    // was captured with extra rendered text in it). Fall back to the closest match
+    // instead of dropping the annotation entirely.
+    if (!best || score > best.score) best = { ...range, score }
+    if (match[0].length === 0) global.lastIndex += 1
   }
-  return null
+  return best ? { start: best.start, end: best.end } : null
 }
 
 function flattenText(node: HastNode | null | undefined, parent: HastParent | null, acc: { node: HastText; parent: HastParent | null }[]): void {
@@ -301,6 +305,21 @@ export function rehypeAnnotate(annotations: Annotation[] | null | undefined) {
   }
 }
 
+// Text the reader sees but the document does not contain: the little “?” bubble
+// rendered next to a note. It must never leak into a quote, or the quote will not
+// match the source text any more.
+const RENDERED_ONLY_SELECTOR = '.ann-q'
+
+function rangeText(range: Range): string {
+  try {
+    const fragment = range.cloneContents()
+    for (const node of Array.from(fragment.querySelectorAll(RENDERED_ONLY_SELECTOR))) node.remove()
+    return fragment.textContent || ''
+  } catch {
+    return range.toString()
+  }
+}
+
 function textBefore(range: Range, size: number): string {
   const probe = document.createRange()
   const host = range.startContainer.ownerDocument?.body
@@ -308,7 +327,7 @@ function textBefore(range: Range, size: number): string {
   try {
     probe.selectNodeContents(host)
     probe.setEnd(range.startContainer, range.startOffset)
-    return probe.toString().slice(-size)
+    return rangeText(probe).slice(-size)
   } catch {
     return ''
   }
@@ -321,14 +340,14 @@ function textAfter(range: Range, size: number): string {
   try {
     probe.selectNodeContents(host)
     probe.setStart(range.endContainer, range.endOffset)
-    return probe.toString().slice(0, size)
+    return rangeText(probe).slice(0, size)
   } catch {
     return ''
   }
 }
 
 export function quoteFromRange(range: Range, root: Node): AnnotationQuote | null {
-  const exact = range.toString()
+  const exact = rangeText(range)
   const trimmed = compact(exact).trim()
   if (!trimmed || trimmed.length > 400) return null
 
@@ -349,7 +368,7 @@ export function quoteFromRange(range: Range, root: Node): AnnotationQuote | null
 
   return {
     exact: trimmed,
-    prefix: compact(prefixRange.toString()).slice(-32),
-    suffix: compact(suffixRange.toString()).slice(0, 32),
+    prefix: compact(rangeText(prefixRange)).slice(-32),
+    suffix: compact(rangeText(suffixRange)).slice(0, 32),
   }
 }
