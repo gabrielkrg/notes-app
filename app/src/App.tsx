@@ -94,6 +94,7 @@ import type { NoteKind } from '@/lib/note-name.ts'
 import type { RenameTarget } from '@/lib/note-rename.ts'
 import { fileKind } from '@/lib/note-name.ts'
 import { SplitPane } from '@/components/split-pane'
+import { Toc, TocMobile, useToc } from '@/components/toc'
 import {
   formatSplitWidth,
   loadSplitWidth,
@@ -1293,8 +1294,11 @@ function Article({
     return () => window.removeEventListener('keydown', onKey, true)
   }, [findOpen, htmlFullscreen, page.file, editing, kind])
 
+  const { items: tocItems, active: tocActive } = useToc(viewRootRef, `${page.file}:${editing}:${kind}:${page.body.length}`)
+
   return (
-    <article className={PAGE_SHELL}>
+    <div className="mx-auto flex w-full max-w-5xl gap-8 px-6 py-8 xl:max-w-6xl">
+    <article className="flex min-w-0 flex-1 flex-col gap-6">
       {findOpen ? (
         <FindBar
           query={findQuery}
@@ -1307,6 +1311,7 @@ function Article({
           onClose={closeFind}
         />
       ) : null}
+      {!editing ? <TocMobile items={tocItems} active={tocActive} /> : null}
       <header className="grid gap-2">
         <div className="flex items-center gap-2">
           {onToggleBookmark ? (
@@ -1553,5 +1558,7 @@ function Article({
         </>
       )}
     </article>
+      <Toc items={tocItems} active={tocActive} />
+    </div>
   )
 }
