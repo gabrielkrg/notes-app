@@ -586,8 +586,10 @@ function startEditing() {
         <TooltipProvider>
         <SidebarProvider className="h-svh flex-col overflow-hidden">
           <header className="titlebar relative z-20 flex shrink-0 items-stretch border-b bg-background">
-            <div className="titlebar-inner flex min-w-0 flex-1 items-center gap-2">
-              <SidebarTrigger className="-ml-1" />
+            <div className="titlebar-inner flex min-w-0 flex-1 items-center gap-2 max-md:flex-wrap max-md:content-center max-md:gap-x-2 max-md:gap-y-0">
+              {/* Mobile puts the actions on the right, next to the thumb. */}
+              <div className="flex items-center gap-2 max-md:w-full max-md:justify-end max-md:-mr-1 md:-ml-1">
+              <SidebarTrigger />
               <Tooltip>
                 <TooltipTrigger asChild>
                   <SearchTrigger onOpen={() => setSearchOpen(true)} />
@@ -634,7 +636,8 @@ function startEditing() {
                   <ShortcutHint keyLabel="," />
                 </TooltipContent>
               </Tooltip>
-              <Breadcrumb className="min-w-0 flex-1">
+              </div>
+              <Breadcrumb className="min-w-0 flex-1 max-md:w-full max-md:flex-none">
                 <BreadcrumbList>
                   <BreadcrumbItem className="hidden sm:block">
                     {showingDashboard ? (
@@ -1297,7 +1300,11 @@ function Article({
   const { items: tocItems, active: tocActive } = useToc(viewRootRef, `${page.file}:${editing}:${kind}:${page.body.length}`)
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl gap-8 px-6 py-8 xl:max-w-6xl">
+    <div
+      className={`mx-auto flex w-full max-w-5xl gap-8 px-6 py-8 xl:max-w-6xl ${
+        tocItems.length > 1 ? 'max-xl:pt-16' : ''
+      }`}
+    >
     <article className="flex min-w-0 flex-1 flex-col gap-6">
       {findOpen ? (
         <FindBar

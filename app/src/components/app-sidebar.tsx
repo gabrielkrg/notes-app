@@ -263,6 +263,7 @@ export function AppSidebar({
   onOpenSettings,
   onOpenBookmarks,
 }: AppSidebarProps) {
+  const { isMobile: sidebarIsMobile } = useSidebar()
   const [token, setToken] = useState(0)
   const [openIds, setOpen, closeAll] = useOpenFolders(tree, route, token)
   const collapseAll = () => {
@@ -316,7 +317,7 @@ export function AppSidebar({
 
   return (
     <FolderCollapseContext.Provider value={{ token, collapseAll }}>
-    <Sidebar variant="inset" collapsible="offcanvas">
+    <Sidebar variant="inset" collapsible="offcanvas" side={sidebarIsMobile ? 'right' : 'left'}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

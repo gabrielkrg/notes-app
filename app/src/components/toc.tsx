@@ -85,7 +85,7 @@ export function Toc({ items, active }: { items: TocItem[]; active: string }) {
 export function TocMobile({ items, active }: { items: TocItem[]; active: string }) {
   if (items.length < 2) return null
   return (
-    <details className="sticky top-0 z-20 -mx-6 border-b bg-background/95 px-6 py-2 backdrop-blur xl:hidden">
+    <details className="fixed inset-x-0 top-(--titlebar-height) z-20 border-b bg-background px-6 py-2 xl:hidden">
       <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
         <List className="size-4" aria-hidden="true" />
         {items.find((item) => item.id === active)?.text || 'On this page'}
@@ -94,7 +94,7 @@ export function TocMobile({ items, active }: { items: TocItem[]; active: string 
         <TocLinks
           items={items}
           active={active}
-          onPick={() => document.querySelector<HTMLDetailsElement>('details[open].sticky')?.removeAttribute('open')}
+          onPick={() => document.querySelector<HTMLDetailsElement>('details[open].fixed')?.removeAttribute('open')}
         />
       </div>
     </details>

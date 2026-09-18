@@ -626,6 +626,13 @@
   background-color: color-mix(in oklch, var(--highlight) 42%, transparent);
 }
 
+/* Mobile stacks the actions row over the breadcrumb row. */
+@media (width < 48rem) {
+  :root {
+    --titlebar-height: 5rem;
+  }
+}
+
 .titlebar {
   height: var(--titlebar-height);
   app-region: drag;
