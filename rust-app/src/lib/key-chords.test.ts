@@ -1,0 +1,154 @@
+import assert from 'node:assert/strict'
+import { describe, it, mock } from 'node:test'
+
+import {
+  CtrlKChord,
+  isCancelEditShortcut,
+  isEditNoteShortcut,
+  isHtmlFullscreenShortcut,
+  isNewNoteShortcut,
+  isReloadFoldersShortcut,
+  isSettingsShortcut,
+} from './key-chords.ts'
+
+function keyEvent({ key, ctrlKey = false, metaKey = false }: { key: string; ctrlKey?: boolean; metaKey?: boolean }) {
+  return {
+    key,
+    ctrlKey,
+    metaKey,
+    preventDefault() {
+      this.prevented = true
+    },
+    prevented: false,
+  }
+}
+
+describe('CtrlKChord', () => {
+  it('opens search after Ctrl+K if no second key arrives', () => {
+    mock.timers.enable({ apis: ['setTimeout'] })
+    const chord = new CtrlKChord()
+    const calls: string[] = []
+    const event = keyEvent({ key: 'k', ctrlKey: true })
+
+    assert.equal(chord.handle(event, { onSearch: () => calls.push('search'), onOpenFolder: () => calls.push('folder') }), 'pending')
+    assert.equal(event.prevented, true)
+    assert.deepEqual(calls, [])
+
+    mock.timers.tick(500)
+    assert.deepEqual(calls, ['search'])
+    chord.dispose()
+    mock.timers.reset()
+  })
+
+  it('opens a folder on Ctrl+K then Ctrl+O', () => {
+    mock.timers.enable({ apis: ['setTimeout'] })
+    const chord = new CtrlKChord()
+    const calls: string[] = []
+    const handlers = {
+      onSearch: () => calls.push('search'),
+      onOpenFolder: () => calls.push('folder'),
+    }
+
+    chord.handle(keyEvent({ key: 'k', ctrlKey: true }), handlers)
+    const second = keyEvent({ key: 'o', ctrlKey: true })
+    assert.equal(chord.handle(second, handlers), 'folder')
+    assert.equal(second.prevented, true)
+    assert.deepEqual(calls, ['folder'])
+
+    mock.timers.tick(500)
+    assert.deepEqual(calls, ['folder'])
+    chord.dispose()
+    mock.timers.reset()
+  })
+
+  it('closes search immediately on Ctrl+K when search is already open', () => {
+    const chord = new CtrlKChord()
+    const calls: string[] = []
+    const event = keyEvent({ key: 'k', ctrlKey: true })
+
+    assert.equal(
+      chord.handle(event, {
+        searchOpen: true,
+        onSearch: () => calls.push('search'),
+        onOpenFolder: () => calls.push('folder'),
+      }),
+      'search',
+    )
+    assert.deepEqual(calls, ['search'])
+    chord.dispose()
+  })
+})
+
+describe('isNewNoteShortcut', () => {
+  it('matches Ctrl+N and Cmd+N', () => {
+    assert.equal(isNewNoteShortcut(keyEvent({ key: 'n', ctrlKey: true })), true)
+    assert.equal(isNewNoteShortcut(keyEvent({ key: 'N', metaKey: true })), true)
+  })
+
+  it('ignores N without a modifier and other chords', () => {
+    assert.equal(isNewNoteShortcut(keyEvent({ key: 'n' })), false)
+    assert.equal(isNewNoteShortcut(keyEvent({ key: 'k', ctrlKey: true })), false)
+  })
+})
+
+describe('isEditNoteShortcut', () => {
+  it('matches E without a modifier', () => {
+    assert.equal(isEditNoteShortcut(keyEvent({ key: 'e' })), true)
+    assert.equal(isEditNoteShortcut(keyEvent({ key: 'E' })), true)
+  })
+
+  it('ignores E with a modifier and other keys', () => {
+    assert.equal(isEditNoteShortcut(keyEvent({ key: 'e', ctrlKey: true })), false)
+    assert.equal(isEditNoteShortcut(keyEvent({ key: 'e', metaKey: true })), false)
+    assert.equal(isEditNoteShortcut(keyEvent({ key: 'n' })), false)
+  })
+})
+
+describe('isHtmlFullscreenShortcut', () => {
+  it('matches F without a modifier', () => {
+    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'f' })), true)
+    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'F' })), true)
+  })
+
+  it('ignores F with a modifier and other keys', () => {
+    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'f', ctrlKey: true })), false)
+    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'f', metaKey: true })), false)
+    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'e' })), false)
+  })
+})
+
+describe('isReloadFoldersShortcut', () => {
+  it('matches F5 without a modifier', () => {
+    assert.equal(isReloadFoldersShortcut(keyEvent({ key: 'F5' })), true)
+  })
+
+  it('ignores F5 with a modifier and other keys', () => {
+    assert.equal(isReloadFoldersShortcut(keyEvent({ key: 'F5', ctrlKey: true })), false)
+    assert.equal(isReloadFoldersShortcut(keyEvent({ key: 'F5', metaKey: true })), false)
+    assert.equal(isReloadFoldersShortcut(keyEvent({ key: 'F3' })), false)
+  })
+})
+
+describe('isCancelEditShortcut', () => {
+  it('matches Escape without a modifier', () => {
+    assert.equal(isCancelEditShortcut(keyEvent({ key: 'Escape' })), true)
+  })
+
+  it('ignores Escape with a modifier and other keys', () => {
+    assert.equal(isCancelEditShortcut(keyEvent({ key: 'Escape', ctrlKey: true })), false)
+    assert.equal(isCancelEditShortcut(keyEvent({ key: 'Escape', metaKey: true })), false)
+    assert.equal(isCancelEditShortcut(keyEvent({ key: 'e' })), false)
+  })
+})
+
+describe('isSettingsShortcut', () => {
+  it('matches Ctrl+, and Cmd+,', () => {
+    assert.equal(isSettingsShortcut(keyEvent({ key: ',', ctrlKey: true })), true)
+    assert.equal(isSettingsShortcut(keyEvent({ key: ',', metaKey: true })), true)
+  })
+
+  it('ignores comma without a modifier and other keys', () => {
+    assert.equal(isSettingsShortcut(keyEvent({ key: ',' })), false)
+    assert.equal(isSettingsShortcut(keyEvent({ key: 'k', ctrlKey: true })), false)
+  })
+})

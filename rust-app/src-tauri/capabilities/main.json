@@ -1,0 +1,6 @@
+{
+  "identifier": "main",
+  "description": "Only the main notes window can access application commands.",
+  "windows": ["main"],
+  "permissions": ["core:default", "core:window:allow-start-dragging"]
+}

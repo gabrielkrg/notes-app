@@ -1,0 +1,100 @@
+export type CreateNoteInput = {
+  parent?: string
+  name?: string
+  type?: 'markdown' | 'text' | 'html' | 'css' | 'js'
+}
+
+export type CreatedNote = {
+  file: string
+  raw: string
+}
+
+export type DeleteFolderInput = {
+  path: string
+  confirmName?: string
+  expectedNames?: string[]
+}
+
+export type RenameNoteInput = {
+  file: string
+  name: string
+}
+
+export type RenameFolderInput = {
+  path: string
+  name: string
+}
+
+export type GithubRemoteInput = {
+  id: string
+  url: string
+  owner: string
+  repo: string
+  ref?: string
+  subpath?: string
+}
+
+export type NotesSnapshot = {
+  files: Record<string, string>
+  githubFiles: string[]
+  githubNames?: Record<string, string>
+}
+
+export type AssetResult = {
+  file: string
+  dataUrl: string
+}
+
+export type TitleBarOverlayInput = {
+  color: string
+  symbolColor: string
+}
+
+export type DesktopApi = {
+  platform: string
+  setTitleBarOverlay(overlay: TitleBarOverlayInput): Promise<void>
+  minimizeWindow(): Promise<void>
+  toggleMaximizeWindow(): Promise<void>
+  closeWindow(): Promise<void>
+  isMaximized(): Promise<boolean>
+  onMaximizeChange(cb: (maximized: boolean) => void): () => void
+  openNote(file: string): Promise<void>
+  openInBrowser(file: string): Promise<void>
+  listNotes(refreshGithub?: boolean): Promise<NotesSnapshot>
+  searchNotes?(query: string): Promise<{
+    files: { file: string; route: string; title: string; navLabel?: string }[]
+    contents: { file: string; route: string; title: string; snippet: string }[]
+  }>
+  writeNote(file: string, content: string): Promise<{ file: string }>
+  readAsset(file: string): Promise<AssetResult>
+  createNote(opts: CreateNoteInput): Promise<CreatedNote>
+  createFolder(opts: CreateNoteInput): Promise<CreatedNote>
+  deleteNote(file: string): Promise<{ file: string }>
+  deleteFolder(opts: DeleteFolderInput): Promise<{ path: string }>
+  renameNote(opts: RenameNoteInput): Promise<{ file: string }>
+  renameFolder(opts: RenameFolderInput): Promise<{ path: string }>
+  getNotesRoot(): Promise<string>
+  getNotesRoots(): Promise<string[]>
+  setNotesRoot(dir: string): Promise<string>
+  setNotesRoots(dirs: string[]): Promise<string[]>
+  getDefaultNotesRoot(): Promise<string>
+  setDefaultNotesRoot(dir: string): Promise<string>
+  pickNotesFolder(): Promise<string | null>
+  getGithubRemotes(): Promise<GithubRemoteInput[]>
+  setGithubRemotes(remotes: GithubRemoteInput[]): Promise<GithubRemoteInput[]>
+  hasGithubToken(): Promise<boolean>
+  githubTokenPersisted(): Promise<boolean>
+  setGithubToken(token: string): Promise<{ persisted: boolean }>
+  clearGithubToken(): Promise<void>
+  getGithubSyncErrors(): Promise<{ id: string; message: string }[]>
+}
+
+declare global {
+  interface Window {
+    desktop?: DesktopApi
+  }
+}
+
+export function isDesktop(): boolean {
+  return typeof window !== 'undefined' && Boolean(window.desktop?.listNotes)
+}
