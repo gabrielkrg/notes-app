@@ -42,10 +42,11 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const packageDir = path.join(__dirname, '..')
 const repoDir = path.join(packageDir, '..')
-const appIcon = [
-  path.join(packageDir, 'dist/favicon/favicon-96x96.png'),
-  path.join(packageDir, 'public/favicon/favicon-96x96.png'),
-].find((file) => fs.existsSync(file))
+const appIcon = app.isPackaged
+  ? path.join(process.resourcesPath, 'icon.png')
+  : path.join(packageDir, 'public/favicon/app-icon-512.png')
+
+app.setName('Notes')
 
 let mainWindow: BrowserWindow | null = null
 
@@ -178,12 +179,6 @@ function createWindow(): BrowserWindow {
 }
 
 Menu.setApplicationMenu(null)
-
-// GNOME/Wayland matches the dock icon via app_id, which must equal the
-// installed .desktop filename (notes-desk.desktop). Call this before ready.
-if (process.platform === 'linux') {
-  app.setDesktopName('notes-desk.desktop')
-}
 
 const gotTheLock = app.requestSingleInstanceLock()
 

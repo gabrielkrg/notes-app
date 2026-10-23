@@ -89,10 +89,14 @@
       {
         "from": "../notes",
         "to": "notes"
+      },
+      {
+        "from": "public/favicon/app-icon-512.png",
+        "to": "icon.png"
       }
     ],
     "linux": {
-      "icon": "public/favicon/favicon-96x96.png",
+      "icon": "public/favicon/app-icon-512.png",
       "target": [
         "AppImage"
       ],
