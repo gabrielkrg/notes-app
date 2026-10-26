@@ -10,23 +10,23 @@
     "preview": "npm run preview -w app",
     "typecheck": "npm run typecheck -w app",
     "test": "npm run test -w app",
-    "desktop": "npm run desktop -w app",
-    "desktop:pack": "npm run desktop:pack -w app",
-    "desktop:build": "npm run desktop:build -w app",
-    "desktop:build:linux": "npm run desktop:build:linux -w app",
-    "desktop:build:win": "npm run desktop:build:win -w app",
-    "desktop:build:mac": "npm run desktop:build:mac -w app",
+    "desktop": "npm --prefix rust-app run dev",
+    "desktop:pack": "npm --prefix rust-app run build -- --no-bundle",
+    "desktop:build": "npm --prefix rust-app run build",
+    "desktop:build:linux": "npm --prefix rust-app run build -- --bundles appimage",
+    "desktop:build:win": "npm --prefix rust-app run build -- --bundles nsis",
+    "desktop:build:mac": "npm --prefix rust-app run build -- --bundles dmg",
     "mobile": "npm run mobile -w app",
     "mobile:build": "npm run mobile:build -w app",
     "mobile:sync": "npm run mobile:sync -w app",
     "mobile:android": "npm run mobile:android -w app",
     "mobile:run:android": "npm run mobile:run:android -w app",
     "mobile:assets": "npm run mobile:assets -w app",
-    "mobile:build:android": "npm run mobile:build:android -w app"
+    "mobile:build:android": "npm run mobile:build:android -w app",
+    "desktop:test": "npm --prefix rust-app test",
+    "desktop:typecheck": "npm --prefix rust-app run typecheck"
   },
   "allowScripts": {
-    "electron@41.10.6": true,
-    "electron-winstaller@5.4.0": true,
     "esbuild@0.28.2": true
   }
 }

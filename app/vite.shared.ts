@@ -6,7 +6,6 @@ import { parseNotesRootEnv } from './src/lib/notes-roots.ts'
 
 export const appDir = path.dirname(fileURLToPath(import.meta.url))
 export const repoDir = path.join(appDir, '..')
-export const desktopDir = path.join(appDir, 'desktop')
 
 export function loadAppEnv(mode: string) {
   const env = loadEnv(mode, appDir, '')

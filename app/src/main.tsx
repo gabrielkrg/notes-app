@@ -16,7 +16,7 @@ function mount() {
 
 // The mobile build installs its own `window.desktop` before React mounts, so
 // `isDesktop()` is already true on the first render. The import is dynamic so
-// the Capacitor plugins never reach the web or Electron bundles.
+// the Capacitor plugins never reach the web bundle.
 if (import.meta.env.VITE_PLATFORM === 'mobile') {
   void import('../mobile/api.ts').then(({ installMobileApi }) => {
     installMobileApi()

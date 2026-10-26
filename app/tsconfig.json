@@ -20,7 +20,6 @@
   },
   "include": [
     "src",
-    "desktop",
     "mobile",
     "capacitor.config.ts",
     "vite.config.ts",

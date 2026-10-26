@@ -24,7 +24,7 @@ export async function writeSettings(next: AppSettings): Promise<void> {
 /**
  * The token lives in Preferences, which is app-private storage
  * (SharedPreferences on Android, UserDefaults on iOS) but is not hardware
- * encrypted the way Electron's `safeStorage` is. Swap in a Keychain/Keystore
+ * encrypted. Swap in a Keychain/Keystore
  * plugin here if the threat model needs it.
  */
 export async function readGithubToken(): Promise<string> {

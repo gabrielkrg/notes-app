@@ -121,6 +121,12 @@ def main():
                 run("""
                   location.hash='#/vault/welcome';
                   await smokeWait(()=>document.querySelector('.typeset-docs')?.textContent.includes('Rust native needle'));
+                  for (const modifier of ['ctrlKey', 'metaKey']) {
+                    window.dispatchEvent(new KeyboardEvent('keydown',{key:',',[modifier]:true,bubbles:true}));
+                    await smokeWait(()=>document.querySelector('[role="dialog"] input'));
+                    document.querySelector('[role="dialog"] input').dispatchEvent(new KeyboardEvent('keydown',{key:',',[modifier]:true,bubbles:true}));
+                    await smokeWait(()=>!document.querySelector('[role="dialog"]'));
+                  }
                   document.querySelector('button[aria-label="Search notes"]').click();
                   await smokeWait(()=>document.querySelector('[cmdk-input]'));
                   const input=document.querySelector('[cmdk-input]');
@@ -151,6 +157,10 @@ def main():
                   await smokeWait(()=>!document.querySelector('[aria-label="Note editor"]'));
                   window.dispatchEvent(new KeyboardEvent('keydown',{key:'f',ctrlKey:true,bubbles:true}));
                   await smokeWait(()=>document.querySelector('[aria-label="Find in note"]'));
+                  document.querySelector('[aria-label="Find in note"]').dispatchEvent(new KeyboardEvent('keydown',{key:'f',ctrlKey:true,bubbles:true}));
+                  await smokeWait(()=>!document.querySelector('[aria-label="Find in note"]'));
+                  window.dispatchEvent(new KeyboardEvent('keydown',{key:'f',ctrlKey:true,bubbles:true}));
+                  await smokeWait(()=>document.querySelector('[aria-label="Find in note"]'));
                   const find=document.querySelector('[aria-label="Find in note"]');
                   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(find,'needle');
                   find.dispatchEvent(new Event('input',{bubbles:true}));
@@ -169,6 +179,10 @@ def main():
                   await smokeWait(()=>document.querySelector('iframe'));
                   await smokeWait(()=>window.sandboxMessage);
                   if(sandboxMessage.bridge!=='undefined')throw Error('Sandbox can access Rust bridge');
+                  window.dispatchEvent(new KeyboardEvent('keydown',{key:'f',bubbles:true}));
+                  await smokeWait(()=>document.querySelector('.html-fullscreen'));
+                  window.dispatchEvent(new KeyboardEvent('keydown',{key:'f',bubbles:true}));
+                  await smokeWait(()=>!document.querySelector('.html-fullscreen'));
                   return sandboxMessage;
                 """)
                 print("PASS: HTML scripts execute inside sandbox without Rust bridge", result)

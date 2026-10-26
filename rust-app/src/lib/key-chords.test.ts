@@ -24,15 +24,15 @@ function keyEvent({ key, ctrlKey = false, metaKey = false }: { key: string; ctrl
 }
 
 describe('CtrlKChord', () => {
-  it('opens search after Ctrl+K if no second key arrives', () => {
+  it('opens search immediately on Ctrl+K without waiting for the chord timeout', () => {
     mock.timers.enable({ apis: ['setTimeout'] })
     const chord = new CtrlKChord()
     const calls: string[] = []
     const event = keyEvent({ key: 'k', ctrlKey: true })
 
-    assert.equal(chord.handle(event, { onSearch: () => calls.push('search'), onOpenFolder: () => calls.push('folder') }), 'pending')
+    assert.equal(chord.handle(event, { onSearch: () => calls.push('search'), onOpenFolder: () => calls.push('folder') }), 'search')
     assert.equal(event.prevented, true)
-    assert.deepEqual(calls, [])
+    assert.deepEqual(calls, ['search'])
 
     mock.timers.tick(500)
     assert.deepEqual(calls, ['search'])
@@ -51,12 +51,31 @@ describe('CtrlKChord', () => {
 
     chord.handle(keyEvent({ key: 'k', ctrlKey: true }), handlers)
     const second = keyEvent({ key: 'o', ctrlKey: true })
-    assert.equal(chord.handle(second, handlers), 'folder')
+    assert.equal(chord.handle(second, { ...handlers, searchOpen: true }), 'folder')
     assert.equal(second.prevented, true)
-    assert.deepEqual(calls, ['folder'])
+    assert.deepEqual(calls, ['search', 'folder'])
 
     mock.timers.tick(500)
-    assert.deepEqual(calls, ['folder'])
+    assert.deepEqual(calls, ['search', 'folder'])
+    chord.dispose()
+    mock.timers.reset()
+  })
+
+  it('does not open a folder after the chord timeout', () => {
+    mock.timers.enable({ apis: ['setTimeout'] })
+    const chord = new CtrlKChord()
+    const calls: string[] = []
+    const handlers = {
+      onSearch: () => calls.push('search'),
+      onOpenFolder: () => calls.push('folder'),
+    }
+
+    chord.handle(keyEvent({ key: 'k', ctrlKey: true }), handlers)
+    mock.timers.tick(500)
+    const second = keyEvent({ key: 'o', ctrlKey: true })
+    assert.equal(chord.handle(second, { ...handlers, searchOpen: true }), null)
+    assert.equal(second.prevented, false)
+    assert.deepEqual(calls, ['search'])
     chord.dispose()
     mock.timers.reset()
   })

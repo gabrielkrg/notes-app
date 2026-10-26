@@ -288,8 +288,8 @@ export default function App() {
     function onKey(event: globalThis.KeyboardEvent) {
       if (isSettingsShortcut(event)) {
         event.preventDefault()
-        if (!confirmLeave()) return
-        setSettingsOpen(true)
+        if (!settingsOpen && !confirmLeave()) return
+        setSettingsOpen((open) => !open)
         return
       }
       if (isReloadFoldersShortcut(event)) {
@@ -320,6 +320,7 @@ export default function App() {
           searchOpen,
           onSearch: () => setSearchOpen((open) => !open),
           onOpenFolder: () => {
+            setSearchOpen(false)
             addNotesFolder().catch((err: unknown) => {
               window.alert(err instanceof Error ? err.message : 'Could not add that folder')
             })
@@ -329,21 +330,22 @@ export default function App() {
       }
       if (!(event.target instanceof HTMLElement)) return
       if (event.target.matches('input, textarea') || event.target.isContentEditable) return
-      if (isEditNoteShortcut(event) && desktop && page && !editing && !page.readonly) {
+      if (isEditNoteShortcut(event) && desktop && page && !page.readonly) {
         event.preventDefault()
-        startEditing()
+        if (editing) cancelEditing()
+        else startEditing()
         return
       }
       if (event.key === '/') {
         event.preventDefault()
-        setSearchOpen(true)
+        setSearchOpen((open) => !open)
       }
       if (event.key === '[' && prev) go(prev.route)
       if (event.key === ']' && next) go(next.route)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [prev, next, editing, dirty, draft, page, desktop, searchOpen, canCreateAtRoot, defaultLabel, refreshing])
+  }, [prev, next, editing, dirty, draft, page, desktop, searchOpen, settingsOpen, canCreateAtRoot, defaultLabel, refreshing])
 
   useEffect(() => {
     return () => chordRef.current?.dispose()
@@ -1251,8 +1253,11 @@ function Article({
       if (isFindShortcut(event)) {
         event.preventDefault()
         event.stopPropagation()
-        setFindOpen(true)
-        setFindFocus((token) => token + 1)
+        if (findOpen) closeFind()
+        else {
+          setFindOpen(true)
+          setFindFocus((token) => token + 1)
+        }
         return
       }
       if (htmlFullscreen && event.key === 'Escape') {
@@ -1265,7 +1270,6 @@ function Article({
         isHtmlFullscreenShortcut(event) &&
         !editing &&
         kind === 'html' &&
-        !htmlFullscreen &&
         !findOpen
       ) {
         if (event.target instanceof HTMLElement && (event.target.matches('input, textarea') || event.target.isContentEditable)) {
@@ -1273,7 +1277,7 @@ function Article({
         }
         event.preventDefault()
         event.stopPropagation()
-        setHtmlFullscreen(true)
+        setHtmlFullscreen((fullscreen) => !fullscreen)
         return
       }
       if (!findOpen) return

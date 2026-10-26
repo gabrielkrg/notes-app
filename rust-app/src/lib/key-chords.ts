@@ -1,6 +1,6 @@
 export const CTRL_K_CHORD_MS = 500
 
-export type ChordAction = 'folder' | 'search' | 'pending'
+export type ChordAction = 'folder' | 'search'
 
 export type ChordHandlers = {
   searchOpen?: boolean
@@ -45,9 +45,9 @@ export class CtrlKChord {
       this.timer = setTimeout(() => {
         this.pending = false
         this.timer = null
-        onSearch?.()
       }, this.windowMs)
-      return 'pending'
+      onSearch?.()
+      return 'search'
     }
 
     return null

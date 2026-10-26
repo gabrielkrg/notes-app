@@ -2,7 +2,7 @@
 
 The Notes desktop app with a Rust backend and Tauri 2 shell. The existing React interface is retained to preserve its editing and reading features. Electron and the Node runtime are removed from the desktop app. Node is needed only to build the interface.
 
-The original app lives in `../app` and remains independent. This version opens the same plain files without converting them. Settings, bookmarks, read marks, annotations, and themes are stored separately from Electron; those preferences are not automatically migrated. Attach your existing notes folders in Settings. Avoid editing the same file in both apps at once.
+This is the only desktop implementation. The browser and Android app live in `../app`. The Electron desktop implementation has been removed. Existing notes open without conversion, but preferences from old Electron installs are not automatically migrated. Attach your existing notes folders in Settings.
 
 ## Run
 
@@ -87,6 +87,6 @@ Initial index construction took about 453 ms. Adding, removing, or renaming file
 
 ## Reconstruction evidence
 
-The [REA skill](https://github.com/morluto/rea/blob/main/.agents/skills/reverse-engineer-anything/SKILL.md) was read for this migration. It directs complete source-repository analysis to normal repository tools, so no REA provider/server setup or binary decompilation was needed. Behavior was traced through `../app/desktop/{main,preload,notes}.ts`, `../app/src/App.tsx`, `content-core.ts`, the search component, and the corresponding filesystem, GitHub, editor and preview helpers. Their existing tests were copied alongside the UI. Native Rust tests independently cover the replacement backend; UI behavior is also checked through the desktop smoke test.
+The [REA skill](https://github.com/morluto/rea/blob/main/.agents/skills/reverse-engineer-anything/SKILL.md) was read for this migration. It directs complete source-repository analysis to normal repository tools, so no REA provider/server setup or binary decompilation was needed. Before removal, behavior was traced through the Electron main process, preload, and notes backend, plus `../app/src/App.tsx`, `content-core.ts`, the search component, and the corresponding filesystem, GitHub, editor and preview helpers. Their existing tests were copied alongside the UI. Native Rust tests independently cover the replacement backend; UI behavior is also checked through the desktop smoke test.
 
 Linux is the validated native target in this workspace. Windows/macOS packaging, system app chooser behavior, credential-store persistence, live private GitHub access, and Android parity require verification on those environments. GitHub transport is covered with deterministic mocked responses and disk-cache tests.
