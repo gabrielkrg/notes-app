@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import {
   Bookmark,
   ChevronRight,
@@ -9,6 +9,7 @@ import {
   FolderOpen,
   FolderPlus,
   LayoutDashboard,
+  Keyboard,
   Network,
   Paperclip,
   Pencil,
@@ -51,6 +52,7 @@ import { GRAPH_ROUTE, hrefForNode, isGraphRoute, compareNavNodes, type NavDirNod
 import { isGithubVirtualPath } from '@/lib/github-notes.ts'
 import { attachedRootForDir } from '@/lib/notes-roots.ts'
 import { centerScrollTop } from '@/lib/sidebar-scroll.ts'
+import { focusNoteContent, isTypingTarget, navigationShortcut } from '@/lib/navigation-shortcuts.ts'
 import { depthPad, dirOpenId, ensureOpenId, folderOpenChange, toggleOpenId, treeLine } from '@/lib/sidebar-tree.ts'
 import type { DeleteTarget } from '@/lib/note-delete.ts'
 import type { NoteKind } from '@/lib/note-name.ts'
@@ -244,6 +246,7 @@ type AppSidebarProps = {
   onRemoveRoot?: (dir: string) => void
   onOpenSettings?: () => void
   onOpenBookmarks?: () => void
+  onOpenShortcuts?: () => void
 }
 
 export function AppSidebar({
@@ -262,10 +265,87 @@ export function AppSidebar({
   onRemoveRoot,
   onOpenSettings,
   onOpenBookmarks,
+  onOpenShortcuts,
 }: AppSidebarProps) {
-  const { isMobile: sidebarIsMobile } = useSidebar()
+  const { isMobile: sidebarIsMobile, setOpen, openMobile, setOpenMobile } = useSidebar()
+  const menuRef = useRef<HTMLElement>(null)
+  const [focusRequest, setFocusRequest] = useState(0)
   const [token, setToken] = useState(0)
-  const [openIds, setOpen, closeAll] = useOpenFolders(tree, route, token)
+  const [openIds, setFolderOpen, closeAll] = useOpenFolders(tree, route, token)
+
+  function menuItems() {
+    return Array.from(menuRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]') || [])
+      .filter((item) => item.tabIndex >= 0 && item.getClientRects().length > 0 && !item.closest('[data-slot="collapsible-content"][data-state="closed"]'))
+  }
+
+  useEffect(() => {
+    function onKey(event: globalThis.KeyboardEvent) {
+      if (event.defaultPrevented || event.repeat || navigationShortcut(event) !== 'menu') return
+      const dialog = event.target instanceof Element && event.target.closest('[role="dialog"]')
+      if (dialog && !menuRef.current?.contains(event.target as Node)) return
+      event.preventDefault()
+      if (menuRef.current?.contains(document.activeElement)) {
+        if (sidebarIsMobile) setOpenMobile(false)
+        focusNoteContent()
+      } else {
+        if (sidebarIsMobile) setOpenMobile(true)
+        else setOpen(true)
+        setFocusRequest((request) => request + 1)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [sidebarIsMobile, setOpen, setOpenMobile])
+
+  useEffect(() => {
+    if (!focusRequest || (sidebarIsMobile && !openMobile)) return
+    const frame = requestAnimationFrame(() => {
+      const items = menuItems()
+      const target = items.find((item) => item.dataset.active === 'true') || items[0]
+      target?.focus()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [focusRequest, sidebarIsMobile, openMobile])
+
+  function onMenuKey(event: KeyboardEvent<HTMLElement>) {
+    if (event.defaultPrevented || isTypingTarget(event.target)) return
+    const items = menuItems()
+    const current = items.find((item) => item === event.target)
+    if (!current) return
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key === 'Enter') {
+      event.preventDefault()
+      event.stopPropagation()
+      current.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: event.ctrlKey, metaKey: event.metaKey }))
+      return
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return
+    const index = items.indexOf(current)
+    let next: HTMLElement | undefined
+    if (event.key === 'ArrowDown') next = items[Math.min(index + 1, items.length - 1)]
+    else if (event.key === 'ArrowUp') next = items[Math.max(index - 1, 0)]
+    else if (event.key === 'Home') next = items[0]
+    else if (event.key === 'End') next = items[items.length - 1]
+    else if (event.key === 'Escape') {
+      event.preventDefault()
+      event.stopPropagation()
+      if (sidebarIsMobile) setOpenMobile(false)
+      focusNoteContent()
+      return
+    } else if (event.key === 'ArrowRight') {
+      if (current.getAttribute('aria-expanded') === 'false') current.click()
+      else if (current.getAttribute('aria-expanded') === 'true') next = items[index + 1]
+    } else if (event.key === 'ArrowLeft') {
+      if (current.getAttribute('aria-expanded') === 'true') current.click()
+      else {
+        const folder = current.closest('[data-slot="collapsible"]')
+        const parent = current.tagName === 'A' ? folder : folder?.parentElement?.closest('[data-slot="collapsible"]')
+        next = parent?.querySelector<HTMLElement>('button[aria-expanded]') || undefined
+      }
+    } else return
+    event.preventDefault()
+    event.stopPropagation()
+    next?.focus()
+  }
   const collapseAll = () => {
     closeAll()
     setToken((n) => n + 1)
@@ -307,7 +387,7 @@ export function AppSidebar({
               roots={roots}
               githubLabels={githubLabels}
               open={openIds.includes(node.id)}
-              onOpenChange={(next: boolean) => setOpen(node.id, next)}
+              onOpenChange={(next: boolean) => setFolderOpen(node.id, next)}
             />
           ))}
         </SidebarMenu>
@@ -318,6 +398,7 @@ export function AppSidebar({
   return (
     <FolderCollapseContext.Provider value={{ token, collapseAll }}>
     <Sidebar variant="inset" collapsible="offcanvas" side={sidebarIsMobile ? 'right' : 'left'}>
+      <nav ref={menuRef} aria-label="Main menu" className="contents" onKeyDown={onMenuKey}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -401,6 +482,12 @@ export function AppSidebar({
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
+            <SidebarMenuButton tooltip="Keyboard shortcuts" onClick={onOpenShortcuts}>
+              <Keyboard />
+              <span>Keyboard shortcuts</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton tooltip="Settings" onClick={onOpenSettings}>
               <Settings />
               <span>Settings</span>
@@ -409,6 +496,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
+      </nav>
     </Sidebar>
     </FolderCollapseContext.Provider>
   )

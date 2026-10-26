@@ -41,6 +41,44 @@ Desktop only:
 
 ---
 
+## Keyboard navigation
+
+Open the in-app guide with **Ctrl+/** or **Keyboard shortcuts** in the sidebar. It describes every app shortcut. On macOS, use **⌘** instead of **Ctrl**. Plain-letter shortcuts do not run while typing.
+
+| Shortcut | Action |
+|---|---|
+| Ctrl+E | Switch focus between the sidebar menu and note content; reveal the sidebar if hidden |
+| ↑ / ↓ | Move through visible sidebar items |
+| → / ← | Expand or collapse folders; move to a child or parent |
+| Home / End | Focus the first or last sidebar item |
+| Enter | Open the focused note or activate a button |
+| Ctrl+Enter | Open a focused sidebar note or folder in the split pane |
+| Esc | Leave the sidebar, close a dialog, or cancel editing (with an unsaved-changes prompt) |
+| Tab / Shift+Tab | Move forward or backward through controls and fields |
+| Ctrl+B | Show/hide sidebar; bold in the visual editor |
+| Alt+Home | Go to Dashboard |
+| Ctrl+Shift+G | Switch between Graph and Dashboard |
+| [ / ] | Previous / next note while reading |
+| Ctrl+K | Open/close search; insert a link in the visual editor |
+| / | Open search while reading |
+| Ctrl+F | Open/close find in the current note |
+| F3 / Shift+F3 | Next / previous find match |
+| Ctrl+, | Open/close Settings |
+| Ctrl+Shift+B | Open/close Bookmarks |
+| Ctrl+D | Bookmark/unbookmark the current note |
+| Ctrl+/ or ? | Open/close the shortcut guide; ? works outside text fields |
+| F5 | Reload folders and sync remote notes |
+| Ctrl+N | Create a desktop note in the default folder |
+| E | Start editing; leave editing when focus is outside a text field |
+| Ctrl+S | Save the current note |
+| Ctrl+I | Italic in the visual editor |
+| Ctrl+K, Ctrl+O | Attach a desktop notes folder; press the second shortcut within 500 ms |
+| F | Toggle HTML fullscreen with focus outside the preview frame; Esc also exits |
+
+Start with Ctrl+E, use the arrows to choose a note, press Enter, then Ctrl+E again to read and scroll its content. Dialogs keep focus inside their controls; close them with Esc before returning to the sidebar.
+
+---
+
 ## Notes layout
 
 ```

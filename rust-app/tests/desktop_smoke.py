@@ -121,6 +121,31 @@ def main():
                 run("""
                   location.hash='#/vault/welcome';
                   await smokeWait(()=>document.querySelector('.typeset-docs')?.textContent.includes('Rust native needle'));
+                  const content=document.querySelector('[data-note-content]');
+                  const menu=document.querySelector('nav[aria-label="Main menu"]');
+                  const key=(key,mods={})=>document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key,...mods,bubbles:true,cancelable:true}));
+                  for(const modifier of ['ctrlKey','metaKey']) {
+                    content.focus();
+                    key('e',{[modifier]:true});
+                    await smokeWait(()=>menu.contains(document.activeElement));
+                    key('End');
+                    if(document.activeElement.textContent.trim()!=='Settings')throw Error('Sidebar End key');
+                    key('Home');
+                    if(!document.activeElement.textContent.includes('Personal notes'))throw Error('Sidebar Home key');
+                    key('ArrowDown');
+                    if(document.activeElement.getAttribute('aria-label')!=='New note')throw Error('Sidebar Down key');
+                    key('Escape');
+                    await smokeWait(()=>document.activeElement===content);
+                    key('/',{[modifier]:true});
+                    await smokeWait(()=>document.querySelector('[role="dialog"]')?.textContent.includes('Keyboard shortcuts'));
+                    key('/',{[modifier]:true});
+                    await smokeWait(()=>!document.querySelector('[role="dialog"]'));
+                    content.focus();
+                    key('b',{[modifier]:true,shiftKey:true});
+                    await smokeWait(()=>document.querySelector('[role="dialog"]')?.textContent.includes('Bookmarks'));
+                    key('b',{[modifier]:true,shiftKey:true});
+                    await smokeWait(()=>!document.querySelector('[role="dialog"]'));
+                  }
                   for (const modifier of ['ctrlKey', 'metaKey']) {
                     window.dispatchEvent(new KeyboardEvent('keydown',{key:',',[modifier]:true,bubbles:true}));
                     await smokeWait(()=>document.querySelector('[role="dialog"] input'));

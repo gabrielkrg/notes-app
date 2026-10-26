@@ -155,7 +155,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
 
   function onVisualKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     const key = event.key.toLowerCase()
-    if (!(event.metaKey || event.ctrlKey)) return
+    if (event.altKey || event.shiftKey || !(event.metaKey || event.ctrlKey)) return
     if (key === 'b') {
       event.preventDefault()
       run('bold')

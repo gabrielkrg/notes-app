@@ -36,6 +36,8 @@ import { DeleteNoteDialog } from '@/components/delete-note-dialog'
 import { RenameNoteDialog } from '@/components/rename-note-dialog'
 import { BookmarksDialog } from '@/components/bookmarks-dialog'
 import { SettingsDialog } from '@/components/settings-dialog'
+import { ShortcutsDialog } from '@/components/shortcuts-dialog'
+import { isTypingTarget, navigationShortcut } from '@/lib/navigation-shortcuts.ts'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -115,6 +117,7 @@ import {
   hoistNavRoot,
   hrefForNode,
   isGraphRoute,
+  GRAPH_ROUTE,
   neighbors,
   overviewNodes,
   pageByRoute,
@@ -166,6 +169,7 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [createState, setCreateState] = useState<CreateState | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null)
@@ -286,6 +290,28 @@ export default function App() {
 
   useEffect(() => {
     function onKey(event: globalThis.KeyboardEvent) {
+      if (event.defaultPrevented) return
+      const navigation = navigationShortcut(event, isTypingTarget(event.target))
+      const inDialog = event.target instanceof Element && event.target.closest('[role="dialog"]')
+      if (navigation === 'guide' && (!inDialog || shortcutsOpen)) {
+        event.preventDefault()
+        if (!event.repeat) setShortcutsOpen((open) => !open)
+        return
+      }
+      if (navigation === 'bookmarks' && (!inDialog || bookmarksOpen)) {
+        event.preventDefault()
+        if (event.repeat || (!bookmarksOpen && !confirmLeave())) return
+        setBookmarksOpen((open) => !open)
+        return
+      }
+      if (!inDialog && ['dashboard', 'graph', 'bookmark'].includes(navigation || '')) {
+        event.preventDefault()
+        if (event.repeat) return
+        if (navigation === 'dashboard') go('')
+        if (navigation === 'graph') go(showingGraph ? '' : GRAPH_ROUTE)
+        if (navigation === 'bookmark' && page) toggleBookmarked(page.file)
+        return
+      }
       if (isSettingsShortcut(event)) {
         event.preventDefault()
         if (!settingsOpen && !confirmLeave()) return
@@ -329,7 +355,7 @@ export default function App() {
         if (handled) return
       }
       if (!(event.target instanceof HTMLElement)) return
-      if (event.target.matches('input, textarea') || event.target.isContentEditable) return
+      if (inDialog || isTypingTarget(event.target)) return
       if (isEditNoteShortcut(event) && desktop && page && !page.readonly) {
         event.preventDefault()
         if (editing) cancelEditing()
@@ -345,7 +371,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [prev, next, editing, dirty, draft, page, desktop, searchOpen, settingsOpen, canCreateAtRoot, defaultLabel, refreshing])
+  }, [prev, next, route, split, editing, dirty, draft, page, desktop, searchOpen, settingsOpen, bookmarksOpen, shortcutsOpen, showingGraph, canCreateAtRoot, defaultLabel, refreshing])
 
   useEffect(() => {
     return () => chordRef.current?.dispose()
@@ -739,14 +765,19 @@ function startEditing() {
               if (!confirmLeave()) return
               setBookmarksOpen(true)
             }}
+            onOpenShortcuts={() => setShortcutsOpen(true)}
           />
           <SidebarInset className="min-h-0 overflow-hidden">
             <div ref={splitRowRef} className="flex min-h-0 flex-1">
               <div
                 ref={contentRef}
+                data-note-content
+                tabIndex={-1}
+                role="region"
+                aria-label="Note content"
                 className={`relative min-h-0 min-w-0 ${
                   showSplit ? 'w-full flex-1 md:w-(--split-main) md:flex-none' : 'flex-1'
-                } ${showingGraph ? 'overflow-hidden' : 'overflow-auto'}`}
+                } ${showingGraph ? 'overflow-hidden' : 'overflow-auto'} outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring`}
                 style={
                   showSplit
                     ? ({ '--split-main': formatSplitWidth(splitWidth) } as CSSProperties)
@@ -890,6 +921,7 @@ function startEditing() {
             tree={tree}
             listenShortcut={!desktop}
           />
+          <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
           <BookmarksDialog
             open={bookmarksOpen}
             onOpenChange={setBookmarksOpen}

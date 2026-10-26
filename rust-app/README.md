@@ -50,6 +50,8 @@ Files stay restricted to attached roots. Traversal, symlink escapes, root-direct
 
 ## Verify
 
+Use **Ctrl+E** to switch between the sidebar and note content, and **Ctrl+/** to open the in-app shortcut guide. The [keyboard navigation guide](../README.md#keyboard-navigation) lists the shortcuts, including folder navigation, search, bookmarks, and editing.
+
 ```sh
 npm test                         # existing UI/helper regression tests
 npm run typecheck
