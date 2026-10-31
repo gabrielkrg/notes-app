@@ -27,6 +27,22 @@ npm run build -- --no-bundle      # standalone release executable
 
 The executable is `src-tauri/target/release/notes-rust` (`.exe` on Windows). Packages land in `src-tauri/target/release/bundle/`. Build and sign on the target platform. This folder currently targets desktop; the original app's Android project remains in `../app/android`.
 
+Linux AppImages bundle GStreamer for read-aloud audio. Use the root
+`npm run desktop:build:linux` command, which locates GStreamer's helper tools
+through pkg-config (including on Arch Linux). Install `patchelf` on the build host.
+The build host also needs the base and
+good plugin sets, including `appsrc`, `appsink`, `audioconvert`, `audioresample`,
+`autoaudiosink`, and `pulsesink`.
+
+With the local voice service running, verify the packaged audio path:
+
+```bash
+python3 tests/reading_audio_smoke.py --binary 'src-tauri/target/release/bundle/appimage/Notes Rust_0.1.0_amd64.AppImage'
+```
+
+This requires `tauri-driver`, `WebKitWebDriver`, `dbus-run-session`, and a working
+desktop audio session. It uses temporary notes and a separate D-Bus session.
+
 ## Behavior retained
 
 | Function | Implementation |

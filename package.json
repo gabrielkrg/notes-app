@@ -13,7 +13,7 @@
     "desktop": "npm --prefix rust-app run dev",
     "desktop:pack": "npm --prefix rust-app run build -- --no-bundle",
     "desktop:build": "npm --prefix rust-app run build",
-    "desktop:build:linux": "npm --prefix rust-app run build -- --bundles appimage",
+    "desktop:build:linux": "GSTREAMER_HELPERS_DIR=$(pkg-config --variable=pluginscannerdir gstreamer-1.0) npm --prefix rust-app run build -- --bundles appimage",
     "desktop:build:win": "npm --prefix rust-app run build -- --bundles nsis",
     "desktop:build:mac": "npm --prefix rust-app run build -- --bundles dmg",
     "mobile": "npm run mobile -w app",

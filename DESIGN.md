@@ -84,6 +84,14 @@ Controls and navigation use 7px corners; palette options use 9px; the continue r
 
 The toolbar search has a visible text label and platform-aware shortcut on desktop; phones show the search icon. Palette options show miniature page previews, a selected outline, and a check. Reading typeface uses a native select and a live prose preview. Settings categories are Appearance, Reading, and Library; changes save immediately. Empty searches provide a recovery hint.
 
+Markdown and text notes on desktop browsers and the desktop app show a compact
+read-aloud group below the heading. Use the existing small outline button for
+Read aloud / Pause / Resume, a ghost Stop button during playback, and a native
+speed select. Once started, the controls float at the bottom right through
+preparation, playback, and pauses; stopping or finishing returns them to the note.
+Errors stay inline. Controls wrap on narrow screens and stop audio when the note or reading mode changes. No word highlighting
+is added. Speech comes from a separate offline service on this computer.
+
 ## Do's and Don'ts
 
 - Do maintain the corresponding interface changes in both source trees.

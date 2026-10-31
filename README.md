@@ -39,6 +39,54 @@ Desktop only:
 - **Settings** — attach one or more folders of notes. Each folder is a top-level group.
 - `Ctrl+K` then `Ctrl+O` — pick a folder to attach.
 
+## Read aloud
+
+Markdown and text notes have **Read aloud**, **Pause / Resume**, **Stop**, and a
+speed selector below the heading. Playback streams as the local model generates
+audio. While preparing, playing, or paused, the controls float at the bottom right
+so they remain visible when scrolling. Changing files or entering the editor stops playback. Choose the speed
+before starting; faster playback also raises pitch in this first version.
+There is no word highlighting. HTML previews and source-code files do not show
+the controls.
+
+The browser and desktop interfaces use a small voice service on this computer.
+It runs [Pocket TTS](https://github.com/kyutai-labs/pocket-tts) on the CPU with
+the 18M English model and Alba voice. VoiceStudio does not need to be open.
+The service binds only to `127.0.0.1:49325`; notes and audio stay on this machine.
+Mobile devices are not supported by this local desktop service.
+
+Set up once with Python 3.10–3.14 (Linux/macOS commands):
+
+```bash
+python3 -m venv .venv-reading
+.venv-reading/bin/python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+.venv-reading/bin/python -m pip install -r scripts/requirements-reading.txt
+.venv-reading/bin/python scripts/reading_server.py --download
+```
+
+Setup requires internet to download dependencies, model weights, tokenizer, and
+the preset voice. Files are cached in the ignored `.reading-models/` directory.
+Upstream model access conditions apply; if a download reports an access error,
+follow the Pocket TTS instructions printed by the service and retry setup.
+
+Then start the voice service before reading:
+
+```bash
+.venv-reading/bin/python scripts/reading_server.py
+```
+
+Normal startup enables Hugging Face offline mode and disables its telemetry.
+Keep this terminal running; Ctrl+C stops the service. There is no cloud speech
+fallback. If the service is stopped, the controls show a retryable error.
+Only one note can be synthesized at a time. The browser must be running on
+localhost; a hosted HTTPS page may block access to local services.
+
+Run the voice protocol checks without installing a model:
+
+```bash
+python3 -m unittest discover -s scripts -p 'test_reading_server.py'
+```
+
 ---
 
 ## Keyboard navigation

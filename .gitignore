@@ -1,4 +1,7 @@
 node_modules
+.venv-reading/
+.reading-models/
+__pycache__/
 
 # App outputs and local config
 app/dist

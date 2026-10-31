@@ -48,6 +48,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Button } from '@/components/ui/button'
+import { ReadAloudControls } from '@/components/read-aloud-controls'
 import {
   Card,
   CardDescription,
@@ -1467,6 +1468,10 @@ function Article({
           </p>
         )}
       </header>
+
+      {!editing && !isMobilePlatform(window.desktop?.platform) && (markdown || kind === 'text') && (
+        <ReadAloudControls key={page.file} getText={() => viewRootRef.current?.innerText ?? ''} />
+      )}
 
       {!editing && markdown && <CuePanel cues={page.cue} />}
 
