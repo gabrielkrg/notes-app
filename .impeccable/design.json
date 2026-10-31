@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-31T09:53:01.985537+00:00",
+  "title": "Design System: Notes",
+  "extensions": {
+    "shadows": [
+      {
+        "name": "settings-dialog",
+        "value": "0 24px 90px #0003",
+        "purpose": "Separate preferences from the reading workspace."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-change",
+        "value": "150ms",
+        "purpose": "Hover and selection changes; reduced motion overrides apply."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "settings-stack",
+        "value": "640px"
+      },
+      {
+        "name": "mobile-workspace",
+        "value": "768px"
+      },
+      {
+        "name": "compact-workspace",
+        "value": "1000px"
+      }
+    ]
+  },
+  "narrative": {
+    "overview": "The interface is a practical file library. Navigation and settings use a stable sans-serif face, while the note itself honors the reader\u2019s chosen typography. File rows, subtle dividers, and clearly selected controls carry the hierarchy."
+  },
+  "components": [
+    {
+      "name": "Primary action",
+      "kind": "button",
+      "description": "A primary action using the active palette.",
+      "html": "<button class=\"ds-primary\">Save</button>",
+      "css": ".ds-primary { background:var(--primary,#326b58);color:var(--primary-foreground,#fff);border:0;border-radius:7px;padding:8px 14px;font:500 13px \"IBM Plex Sans Variable\",sans-serif; } .ds-primary:hover { opacity:.9; } .ds-primary:focus-visible { outline:2px solid var(--ring,#51836c);outline-offset:3px; }"
+    },
+    {
+      "name": "Search field",
+      "kind": "input",
+      "description": "An outlined search field.",
+      "html": "<input class=\"ds-search\" placeholder=\"Find a setting\u2026\" aria-label=\"Find a setting\">",
+      "css": ".ds-search { padding:8px 12px;border:1px solid var(--input,#d9dfd7);background:var(--background,#fcfcfa);color:var(--foreground,#252a27);border-radius:7px;font:13px \"IBM Plex Sans Variable\",sans-serif; } .ds-search:hover { border-color:var(--ring,#51836c); } .ds-search:focus-visible { outline:2px solid var(--ring,#51836c);outline-offset:2px; }"
+    },
+    {
+      "name": "Selected navigation",
+      "kind": "nav",
+      "refersTo": "navigation-selected",
+      "description": "Current workspace destination.",
+      "html": "<button class=\"ds-nav\" aria-current=\"page\">Dashboard</button>",
+      "css": ".ds-nav { height:36px;padding:0 12px;background:var(--sidebar-accent,#dfe9df);color:var(--sidebar-accent-foreground,#254c39);border:0;border-radius:7px;font:600 13px \"IBM Plex Sans Variable\",sans-serif; } .ds-nav:hover { filter:brightness(.97); } .ds-nav:focus-visible { outline:2px solid var(--ring,#51836c);outline-offset:3px; }"
+    },
+    {
+      "name": "File row",
+      "kind": "custom",
+      "description": "Full-width, compact file navigation with a divider.",
+      "html": "<button class=\"ds-file\">Notes <span>12 files</span></button>",
+      "css": ".ds-file { display:flex;justify-content:space-between;gap:16px;width:100%;padding:18px 16px;text-align:left;border:0;border-top:1px solid var(--border,#e1e5df);background:var(--background,#fcfcfa);color:var(--foreground,#252a27);font:500 14px \"IBM Plex Sans Variable\",sans-serif; } .ds-file span { font-size:12px;color:var(--muted-foreground,#626b64); } .ds-file:hover { background:var(--muted,#eff1ed); } .ds-file:focus-visible { outline:2px solid var(--ring,#51836c);outline-offset:3px; }"
+    },
+    {
+      "name": "Reading typeface",
+      "kind": "input",
+      "refersTo": "reading-select",
+      "description": "Native font selector with the reading preview alongside it.",
+      "html": "<select class=\"ds-typeface\" aria-label=\"Reading typeface\"><option>Grotesk + Merriweather</option><option>IBM Plex Sans</option></select>",
+      "css": ".ds-typeface { width:100%;height:42px;padding:0 12px;border:1px solid var(--input,#d9dfd7);border-radius:7px;background:var(--background,#fcfcfa);color:var(--foreground,#252a27);font:14px \"IBM Plex Sans Variable\",sans-serif; } .ds-typeface:hover { border-color:var(--ring,#51836c); } .ds-typeface:focus-visible { outline:2px solid var(--ring,#51836c);outline-offset:3px; }"
+    }
+  ]
+}

@@ -10,6 +10,7 @@ import {
   type RefObject,
 } from 'react'
 import {
+  ArrowRight,
   Bookmark,
   ChevronLeft,
   ChevronRight,
@@ -50,7 +51,6 @@ import { Button } from '@/components/ui/button'
 import {
   Card,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
@@ -615,56 +615,7 @@ function startEditing() {
         <SidebarProvider className="h-svh flex-col overflow-hidden">
           <header className="titlebar relative z-20 flex shrink-0 items-stretch border-b bg-background">
             <div className="titlebar-inner flex min-w-0 flex-1 items-center gap-2 max-md:flex-wrap max-md:content-center max-md:gap-x-2 max-md:gap-y-0">
-              {/* Mobile puts the actions on the right, next to the thumb. */}
-              <div className="flex items-center gap-2 max-md:w-full max-md:justify-end max-md:-mr-1 md:-ml-1">
               <SidebarTrigger />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <SearchTrigger onOpen={() => setSearchOpen(true)} />
-                </TooltipTrigger>
-                <TooltipContent>
-                  Search notes
-                  <ShortcutHint />
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Reload folders"
-                    aria-keyshortcuts="F5"
-                    disabled={refreshing}
-                    onClick={() => void refreshFolders()}
-                  >
-                    <RefreshCw className={refreshing ? 'animate-spin' : undefined} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Reload folders
-                  <Kbd>F5</Kbd>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Settings"
-                    onClick={() => {
-                      if (!confirmLeave()) return
-                      setSettingsOpen(true)
-                    }}
-                  >
-                    <Settings />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Settings
-                  <ShortcutHint keyLabel="," />
-                </TooltipContent>
-              </Tooltip>
-              </div>
               <Breadcrumb className="min-w-0 flex-1 max-md:w-full max-md:flex-none">
                 <BreadcrumbList>
                   <BreadcrumbItem className="hidden sm:block">
@@ -716,6 +667,54 @@ function startEditing() {
                   })}
                 </BreadcrumbList>
               </Breadcrumb>
+              <div className="workspace-toolbar-actions flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <SearchTrigger onOpen={() => setSearchOpen(true)} />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Search notes
+                  <ShortcutHint />
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Reload folders"
+                    aria-keyshortcuts="F5"
+                    disabled={refreshing}
+                    onClick={() => void refreshFolders()}
+                  >
+                    <RefreshCw className={refreshing ? 'animate-spin' : undefined} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Reload folders
+                  <Kbd>F5</Kbd>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Settings"
+                    onClick={() => {
+                      if (!confirmLeave()) return
+                      setSettingsOpen(true)
+                    }}
+                  >
+                    <Settings />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Settings
+                  <ShortcutHint keyLabel="," />
+                </TooltipContent>
+              </Tooltip>
+              </div>
               <WindowControls />
             </div>
           </header>
@@ -996,88 +995,65 @@ function Dashboard({
   const lastSection = !folder && last ? sectionForRoute(tree, last) : null
   const isGithubRepo = Boolean(folder && githubLabels.includes(folder.path))
 
+  const recentPages = Object.values(pages).filter((item) => !item.isIndex).slice(0, 5)
+
   return (
-    <div className={PAGE_SHELL}>
-      <header className="grid gap-2">
-        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          {folder ? (isGithubRepo ? 'Repo' : 'Folder') : 'Keep the markdown. Read and write it here.'}
-        </p>
-        <h1 className="flex items-center gap-3 font-heading text-3xl font-medium tracking-tight">
-          {folder ? folder.label : 'Notes stay files. This is the desk.'}
-          {isGithubRepo ? <GithubMark className="size-6 shrink-0 text-muted-foreground" /> : null}
-        </h1>
-        <p className="max-w-xl text-muted-foreground">
-          {folder
-            ? folder.focus ||
-              (isGithubRepo ? 'Folders and files in this repository.' : 'Folders and files in this directory.')
-            : 'Notes stay on disk. Folders are menu groups. Use the sidebar or Settings to add files and point at a folder.'}
-        </p>
-        {last && lastPage && (
-          <div className="min-w-0">
-            <Button className="max-w-full min-w-0" onClick={() => onOpen(last)}>
-              <span className="truncate">
-                Continue {lastSection?.label ? `${lastSection.label} · ` : ''}
-                {lastPage.title}
-              </span>
-            </Button>
-          </div>
-        )}
+    <div className={`${PAGE_SHELL} workspace-home`}>
+      <header className="workspace-heading">
+        <div>
+          <h1>{folder ? folder.label : 'Your workspace'}{isGithubRepo && <GithubMark className="size-6" />}</h1>
+          <p>{folder ? folder.focus || 'Browse the files in this folder.' : 'A little space for everything you’re thinking about.'}</p>
+        </div>
+        <span className="workspace-count">{topicCount} {topicCount === 1 ? 'file' : 'files'}</span>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {nodes.map((node) => {
-          const href = hrefForNode(node)
-          const isDir = node.type === 'dir'
-          const preview = isDir ? node.focus : node.page.blurb
-          const count = isDir ? countTopicPages(node) : 0
-          const isGithubRoot = isDir && githubLabels.includes(node.path)
+      {last && lastPage && (
+        <button type="button" className="continue-note" onClick={() => onOpen(last)}>
+          <div className="continue-icon"><FileText className="size-5" /></div>
+          <div className="min-w-0 flex-1">
+            <span className="text-xs text-muted-foreground">Pick up where you left off</span>
+            <strong className="block truncate font-medium">{lastPage.title}</strong>
+            {lastSection && <span className="text-xs text-muted-foreground">{lastSection.label}</span>}
+          </div>
+          <span className="continue-action inline-flex items-center gap-2">Continue <ArrowRight aria-hidden className="size-4" /></span>
+        </button>
+      )}
 
-          return (
-            <Card key={node.id} className="h-full p-0">
-              <button
-                type="button"
-                className="flex h-full w-full flex-col text-left transition-colors hover:bg-muted/40"
-                onClick={() => href && onOpen(href)}
-              >
-                <CardHeader className="p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="grid min-w-0 flex-1 gap-1">
-                      <CardTitle className="flex min-w-0 items-center gap-2">
-                        <span className="min-w-0 line-clamp-2">{node.label}</span>
-                        {isGithubRoot ? (
-                          <GithubMark className="size-3.5 shrink-0 text-muted-foreground" />
-                        ) : null}
-                      </CardTitle>
-                      {preview ? (
-                        <CardDescription className="line-clamp-2">{preview}</CardDescription>
-                      ) : null}
-                    </div>
-                    {isDir ? (
-                      <Folder aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                    ) : (
-                      <FileText aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                    )}
-                  </div>
-                </CardHeader>
-                <CardFooter className="mt-auto px-5 py-3 text-xs text-muted-foreground">
-                  {isDir ? (
-                    <>
-                      {count} {count === 1 ? 'file' : 'files'}
-                    </>
-                  ) : (
-                    <>{fileKindLabel(node.page.file)}</>
-                  )}
-                </CardFooter>
+      <section aria-labelledby="workspace-library-title" className="workspace-library">
+        <div className="workspace-section-heading">
+          <h2 id="workspace-library-title">{folder ? 'In this folder' : 'Library'}</h2>
+          <span>{nodes.length} {nodes.length === 1 ? 'item' : 'items'}</span>
+        </div>
+        <div className="library-table">
+          <div className="library-table-head" aria-hidden="true"><span>Name</span><span>Contents</span><span /></div>
+          {nodes.map((node) => {
+            const href = hrefForNode(node)
+            const isDir = node.type === 'dir'
+            const preview = isDir ? node.focus : node.page.blurb
+            const count = isDir ? countTopicPages(node) : 0
+            const Icon = isDir ? Folder : FileText
+            return (
+              <button key={node.id} type="button" className="library-row" onClick={() => href && onOpen(href)}>
+                <span className={`library-file-icon ${isDir ? 'is-folder' : ''}`}><Icon className="size-5" /></span>
+                <span className="min-w-0 flex-1"><strong className="block truncate font-medium">{node.label}</strong>{preview && <span className="block truncate text-xs text-muted-foreground">{preview}</span>}</span>
+                <span className="library-file-kind">{isDir ? `${count} ${count === 1 ? 'file' : 'files'}` : fileKindLabel(node.page.file)}</span>
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               </button>
-            </Card>
-          )
-        })}
-      </div>
+            )
+          })}
+          {!nodes.length && <p className="p-6 text-sm text-muted-foreground">Your library starts here. Add a folder or GitHub repository in Settings to bring in your notes.</p>}
+        </div>
+      </section>
 
-      <p className="text-sm text-muted-foreground">
-        {topicCount} topic {topicCount === 1 ? 'file' : 'files'}
-        {folder ? ' in this folder.' : ' on disk.'}
-      </p>
+      {!folder && recentPages.length > 0 && (
+        <section aria-labelledby="workspace-notes-title">
+          <div className="workspace-section-heading"><h2 id="workspace-notes-title">Explore your notes</h2><span>From your library</span></div>
+          <div className="workspace-note-list">
+            {recentPages.map((item) => <button key={item.route} type="button" onClick={() => onOpen(item.route)}><FileText className="size-4 shrink-0 text-muted-foreground" /><span className="min-w-0 flex-1 truncate">{item.title}</span><span className="text-xs text-muted-foreground">{fileKindLabel(item.file)}</span></button>)}
+          </div>
+        </section>
+      )}
+      <footer className="workspace-footer"><span>Notes stay files. Make yourself at home.</span><span>Search your library <ShortcutHint /></span></footer>
     </div>
   )
 }
@@ -1356,29 +1332,6 @@ function Article({
       ) : null}
       {!editing ? <TocMobile items={tocItems} active={tocActive} /> : null}
       <header className="grid gap-2">
-        <div className="flex items-center gap-2">
-          {onToggleBookmark ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark'}
-                  aria-pressed={bookmarked}
-                  onClick={onToggleBookmark}
-                  className="-ml-1.5 text-muted-foreground hover:text-foreground"
-                >
-                  <Bookmark className={bookmarked ? 'fill-current text-foreground' : undefined} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{bookmarked ? 'Bookmarked' : 'Bookmark'}</TooltipContent>
-            </Tooltip>
-          ) : null}
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {section?.label || 'Notes'}
-          </p>
-        </div>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="font-heading text-3xl font-medium tracking-tight">
             {onRename ? (
@@ -1401,6 +1354,25 @@ function Article({
             {dirty ? <span className="ml-2 text-base text-muted-foreground">edited</span> : null}
           </h1>
           <div className="flex flex-wrap gap-2">
+          {onToggleBookmark ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark'}
+                  aria-pressed={bookmarked}
+                  onClick={onToggleBookmark}
+                  className="-ml-1.5 text-muted-foreground hover:text-foreground"
+                >
+                  <Bookmark className={bookmarked ? 'fill-current text-foreground' : undefined} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{bookmarked ? 'Bookmarked' : 'Bookmark'}</TooltipContent>
+            </Tooltip>
+          ) : null}
+
             {desktop && editing && (
               <>
                 <Button variant="outline" size="sm" onClick={onCancel}>

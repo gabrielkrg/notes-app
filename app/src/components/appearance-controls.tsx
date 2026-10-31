@@ -1,8 +1,8 @@
+import { Check } from 'lucide-react'
 import {
   FONT_SIZES,
   PALETTES,
   TYPEFACES,
-  paletteCustomProperties,
   typefaceCustomProperties,
   typefaceForPalette,
 } from '@/lib/appearance.ts'
@@ -80,33 +80,25 @@ export function PalettePicker({ compact = false }: { compact?: boolean }) {
     )
   }
 
+  const previews: Record<string, [string, string, string]> = {
+    ink: ['#fcfcfa', '#e3e9df', '#326b58'], sepia: ['#f7f0e0', '#e5d7b9', '#795939'],
+    forest: ['#edf4ec', '#d0dfce', '#41654b'], slate: ['#eff3f8', '#d7e0ea', '#42617f'],
+    dusk: ['#f9eeed', '#e8cecf', '#895c66'], midnight: ['#20283e', '#151b2d', '#b7c8e4'],
+    abyss: ['#151f31', '#0e1522', '#82a8df'],
+  }
   return (
-    <div role="radiogroup" aria-label="Theme" className="grid w-full grid-cols-3 gap-1.5">
+    <div role="radiogroup" aria-label="Theme" className="palette-options">
       {PALETTES.map((option) => {
         const selected = palette === option.id
-        const faces = facesForPalette(option.id)
-        return (
-          <button
-            key={option.id}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            aria-label={`${option.label}, ${faces}`}
-            title={`${option.label} · ${faces}`}
-            onClick={() => setPalette(option.id)}
-            className={cn(
-              'grid gap-1 rounded-lg border px-2 py-2 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
-              selected
-                ? 'border-foreground/20 bg-background shadow-sm'
-                : 'border-transparent bg-muted/40 hover:bg-muted/70',
-            )}
-            style={{ fontFamily: paletteCustomProperties(option.id)['--font-sans'] }}
-          >
-            <span className="size-4 rounded-full" style={{ background: option.swatch }} />
-            <span className="text-xs font-medium">{option.label}</span>
-            <span className="text-[10px] leading-tight text-muted-foreground">{faces}</span>
-          </button>
-        )
+        const [background, sidebar, ink] = previews[option.id]
+        return <button key={option.id} type="button" role="radio" aria-checked={selected}
+          aria-label={`${option.label}, ${facesForPalette(option.id)}`} title={`${option.label} · ${facesForPalette(option.id)}`}
+          onClick={() => setPalette(option.id)} className="palette-option">
+          <span aria-hidden="true" className="palette-mini" style={{ '--preview-bg': background, '--preview-sidebar': sidebar, '--preview-ink': ink } as React.CSSProperties}>
+            <span className="palette-mini-sidebar" /><span className="palette-mini-page"><span className="palette-mini-line block" /><span className="palette-mini-line block" /><span className="palette-mini-line block" /></span>
+          </span>
+          <span className="palette-option-label">{option.label}{selected && <Check />}</span>
+        </button>
       })}
     </div>
   )
@@ -146,33 +138,8 @@ export function TypefacePicker({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div role="radiogroup" aria-label="Typeface" className="grid w-full grid-cols-3 gap-1.5">
-      {TYPEFACES.map((option) => {
-        const selected = typeface === option.id
-        return (
-          <button
-            key={option.id}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            aria-label={option.faces}
-            title={option.faces}
-            onClick={() => setTypeface(option.id)}
-            className={cn(
-              'grid gap-0.5 rounded-lg border px-2 py-2 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
-              selected
-                ? 'border-foreground/20 bg-background shadow-sm'
-                : 'border-transparent bg-muted/40 hover:bg-muted/70',
-            )}
-            style={{ fontFamily: typefaceCustomProperties(option.id)['--font-sans'] }}
-          >
-            <span className="text-xs font-medium">{option.label}</span>
-            {option.label !== option.faces && (
-              <span className="text-[10px] leading-tight text-muted-foreground">{option.faces}</span>
-            )}
-          </button>
-        )
-      })}
-    </div>
+    <select aria-label="Reading typeface" value={typeface} onChange={(event) => setTypeface(event.target.value as typeof typeface)} className="typeface-select">
+      {TYPEFACES.map((option) => <option key={option.id} value={option.id}>{option.faces}</option>)}
+    </select>
   )
 }

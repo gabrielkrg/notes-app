@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronRight, CornerDownLeft, Search } from 'lucide-react'
 
@@ -51,9 +52,11 @@ export function SearchTrigger({ onOpen, className }: { onOpen: () => void; class
       aria-label="Search notes"
       aria-keyshortcuts="Control+K"
       onClick={onOpen}
-      className={className}
+      className={cn("workspace-search", className)}
     >
       <Search />
+      <span>Search notes…</span>
+      <ShortcutHint />
     </Button>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Folder, FolderOpen, Monitor, Moon, RefreshCw, Search, SlidersHorizontal, Sun, Trash2 } from 'lucide-react'
+import { Folder, FolderOpen, Monitor, Moon, BookOpen, Palette, RefreshCw, Search, SlidersHorizontal, Sun, Trash2 } from 'lucide-react'
 
 import { GithubMark } from '@/components/github-mark.tsx'
 import { Button } from '@/components/ui/button'
@@ -26,7 +26,7 @@ import { useHighlight } from '@/lib/highlight-provider.tsx'
 import { useTheme, type Theme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
-type SectionId = 'general' | 'library'
+type SectionId = 'general' | 'reading' | 'library'
 
 const SECTIONS: {
   id: SectionId
@@ -36,8 +36,8 @@ const SECTIONS: {
 }[] = [
   {
     id: 'general',
-    label: 'General',
-    icon: SlidersHorizontal,
+    label: 'Appearance',
+    icon: Palette,
     keywords: [
       'appearance',
       'theme',
@@ -62,6 +62,7 @@ const SECTIONS: {
       'palette',
     ],
   },
+  { id: 'reading', label: 'Reading', icon: BookOpen, keywords: ['font', 'typeface', 'size', 'text', 'highlight', 'reading'] },
   {
     id: 'library',
     label: 'Library',
@@ -280,26 +281,27 @@ export function SettingsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex h-[min(36rem,calc(100vh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+        className="settings-dialog flex h-[min(44rem,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
           Appearance, font size, color theme, highlight color, notes folders, and GitHub repositories.
         </DialogDescription>
         <div className="flex h-full min-h-0 flex-1 max-sm:flex-col">
-          <aside className="flex w-full shrink-0 flex-col gap-3 border-b bg-muted/40 p-3 sm:w-52 sm:border-r sm:border-b-0">
+          <aside className="settings-navigation flex w-full shrink-0 flex-col gap-5 border-b bg-sidebar p-5 sm:w-52 sm:border-r sm:border-b-0">
+            <h2 className="settings-title">Settings</h2>
             <div className="relative">
               <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search"
-                className="h-8 bg-background/80 pl-8"
+                placeholder="Find a setting…"
+                className="h-9 bg-background/80 pl-8"
                 aria-label="Search settings"
               />
             </div>
             <div className="grid gap-1">
-              <p className="px-2 text-xs font-medium text-muted-foreground">Settings</p>
+
               <nav className="flex gap-1 overflow-x-auto sm:flex-col sm:overflow-visible">
                 {filtered.length ? (
                   filtered.map((item) => {
@@ -312,9 +314,9 @@ export function SettingsDialog({
                         aria-current={active ? 'page' : undefined}
                         onClick={() => setSection(item.id)}
                   className={cn(
-                    'inline-flex h-8 shrink-0 items-center gap-2 rounded-lg px-2 text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'inline-flex h-10 shrink-0 items-center gap-2.5 rounded-lg px-3 text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
                           active
-                            ? 'bg-background text-foreground shadow-sm ring-1 ring-foreground/10'
+                            ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
                             : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
                         )}
                       >
@@ -331,9 +333,11 @@ export function SettingsDialog({
           </aside>
 
           <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-            <div className="grid gap-8 p-6 pr-12">
-              {section === 'general' && <GeneralPane />}
-              {section === 'library' && (
+            <div className="settings-pane grid gap-8 p-8 pt-10">
+              {!filtered.length && <p className="text-sm text-muted-foreground">No settings found. Try “theme”, “font”, or “folder”.</p>}
+              {filtered.length > 0 && section === 'general' && <GeneralPane />}
+              {filtered.length > 0 && section === 'reading' && <GeneralPane reading />}
+              {filtered.length > 0 && section === 'library' && (
                 <LibraryPane
                   desktop={desktop}
                   roots={roots}
@@ -365,22 +369,21 @@ export function SettingsDialog({
   )
 }
 
-function GeneralPane() {
+function GeneralPane({ reading = false }: { reading?: boolean }) {
   const { theme, setTheme } = useTheme()
   const { highlight, setHighlight } = useHighlight()
 
   return (
     <section className="grid gap-8">
       <header className="grid gap-1">
-        <h2 className="font-heading text-base font-medium">Preferences</h2>
+        <h2 className="settings-pane-title">{reading ? 'Reading' : 'Appearance'}</h2>
         <p className="text-sm text-muted-foreground">
-          How the reader looks, the note type size, and the color used when you mark a passage.
-          A theme sets color and type. You can change the typeface after.
+          {reading ? 'Make every note comfortable to read. Changes are saved automatically.' : 'Make this space your own. Changes are saved automatically.'}
         </p>
       </header>
 
       <div className="grid gap-1">
-        <PreferenceRow label="Appearance">
+        {!reading && <PreferenceRow label="Color mode">
           <div
             role="radiogroup"
             aria-label="Appearance"
@@ -399,32 +402,33 @@ function GeneralPane() {
                   title={option.label}
                   onClick={() => setTheme(option.value)}
                   className={cn(
-                    'inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'inline-flex h-9 items-center justify-center gap-2 px-3 rounded-md text-muted-foreground outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
                     selected && 'bg-background text-foreground shadow-sm',
                   )}
                 >
                   <Icon className="size-4" />
+                  <span>{option.label}</span>
                 </button>
               )
             })}
           </div>
-        </PreferenceRow>
+        </PreferenceRow>}
 
-        <PreferenceRow label="Font size">
+        {reading && <PreferenceRow label="Text size">
           <FontSizePicker />
-        </PreferenceRow>
+        </PreferenceRow>}
 
-        <div className="grid gap-2 border-b py-3 last:border-b-0">
-          <span className="text-sm">Theme</span>
+        {!reading && <div className="grid gap-3 py-5">
+          <span className="text-sm font-medium">Color palette</span>
           <PalettePicker />
-        </div>
+        </div>}
 
-        <div className="grid gap-2 border-b py-3 last:border-b-0">
-          <span className="text-sm">Typeface</span>
+        {reading && <div className="grid gap-3 border-b py-5">
+          <span className="text-sm font-medium">Reading typeface</span>
           <TypefacePicker />
-        </div>
+        </div>}
 
-        <PreferenceRow label="Highlight color">
+        {reading && <PreferenceRow label="Highlight color">
           <div role="radiogroup" aria-label="Highlight color" className="flex flex-wrap gap-1.5">
             {HIGHLIGHT_COLORS.map((color) => {
               const selected = highlight === color.id
@@ -446,14 +450,14 @@ function GeneralPane() {
               )
             })}
           </div>
-        </PreferenceRow>
+        </PreferenceRow>}
       </div>
 
-      <div className="typeset typeset-docs rounded-lg border bg-muted/30 px-3 py-3">
-        <h3>A sample heading</h3>
+      <div className="reading-preview typeset typeset-docs rounded-xl bg-muted/40 px-6 py-5">
+        <h3>A space for your ideas</h3>
         <p>
-          Select a phrase and it will look like{' '}
-          <span className="ann-mark">this on the page</span>.
+          A thought worth keeping, a detail worth remembering. Select a phrase to leave{' '}
+          <span className="ann-mark">a little highlight</span>.
         </p>
       </div>
     </section>
@@ -462,7 +466,7 @@ function GeneralPane() {
 
 function PreferenceRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b py-3 last:border-b-0">
+    <div className="preference-row flex items-center justify-between gap-4 border-b py-3 last:border-b-0">
       <span className="text-sm">{label}</span>
       {children}
     </div>
@@ -516,7 +520,7 @@ function LibraryPane({
     <section className="grid gap-8">
       <div className="grid gap-4">
         <header className="grid gap-1">
-          <h2 className="font-heading text-base font-medium">Notes folders</h2>
+          <h2 className="settings-pane-title">Notes folders</h2>
           <p className="text-sm text-muted-foreground">
             Attach one or more folders of `.md`, `.txt`, `.html`, `.css`, and `.js` files. Mark one as default for new notes
             and folders; that folder’s name is hidden in the sidebar and its contents show at the top.
@@ -580,7 +584,7 @@ function LibraryPane({
 
       <div className="grid gap-4">
         <header className="grid gap-1">
-          <h2 className="font-heading text-base font-medium">GitHub repositories</h2>
+          <h2 className="settings-pane-title">GitHub repositories</h2>
           <p className="text-sm text-muted-foreground">
             Paste a repo URL to map its `.md`, `.txt`, `.html`, `.css`, and `.js` files into the sidebar. Private repos need
             a fine-grained token that lists this repository, with Contents: Read. The token stays on
