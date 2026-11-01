@@ -44,7 +44,7 @@ components:
   navigation-selected:
     backgroundColor: "{colors.selected}"
     rounded: "{rounded.control}"
-    height: "36px"
+    height: "28px"
   reading-select:
     backgroundColor: "{colors.background}"
     textColor: "{colors.foreground}"
@@ -64,11 +64,11 @@ The default Ink palette uses muted green for selected navigation and primary act
 
 ## Typography
 
-IBM Plex Sans Variable carries interface labels, dashboard headings, and settings. Workspace headings are 30px on desktop and 26px on phones; settings headings are 23px and 21px respectively. Interface rows use 13–14px, supporting labels 11–12px. Reading preferences control note body and heading families and 16px, 18px, or 21px body sizing.
+IBM Plex Sans Variable carries interface labels, dashboard headings, and settings. Workspace headings are 24px on desktop and 22px on phones; settings headings are 23px and 21px respectively. Interface rows use 13–14px, supporting labels 11–12px. Reading preferences control note body and heading families and 16px, 18px, or 21px body sizing.
 
 ## Layout
 
-A 56px toolbar contains the sidebar toggle, breadcrumb, search, and actions in keyboard order. The sidebar remains resizable. The workspace is capped at 1100px with 56px horizontal padding, reduced to 28px below 1000px and 20px below 768px. Sections have 36px separation, reduced to 28px on phones.
+A 56px toolbar contains the sidebar toggle, breadcrumb, and search. Reload folders, Keyboard shortcuts, and Settings live in a small floating dock fixed at the bottom right (above the safe area), not in the toolbar or sidebar. The sidebar remains resizable; its rows are 28px with 15px icons and 1px gaps. The workspace is capped at 960px with 40px horizontal padding, reduced to 24px below 1000px and 16px below 768px, and keeps 72px bottom padding so the dock never covers the last row. Sections have 28px separation, reduced to 22px on phones.
 
 Settings have a 208px category column and independently scrolling content. Below 640px, navigation becomes a horizontal row above the pane. Palette previews use four columns on desktop and three on phones.
 
@@ -78,7 +78,7 @@ Main surfaces are flat and divided with fine borders. Settings use the existing 
 
 ## Shapes
 
-Controls and navigation use 7px corners; palette options use 9px; the continue row and reading preview use 12px. File rows use separators rather than individual cards.
+Controls use 7px corners and navigation rows 6px; palette options use 9px; the single-line continue row uses 10px and the reading preview 12px. Library rows are compact (8px vertical padding, 28px icon tile) with separators rather than cards, no column header, and an arrow that appears on hover or focus.
 
 ## Components
 
@@ -87,7 +87,7 @@ The toolbar search has a visible text label and platform-aware shortcut on deskt
 Markdown and text notes on desktop browsers and the desktop app show a compact
 read-aloud group below the heading. Use the existing small outline button for
 Read aloud / Pause / Resume, a ghost Stop button during playback, and a native
-speed select. Once started, the controls float at the bottom right through
+speed select. Once started, the controls float at the bottom right, stacked above the quick-actions dock, through
 preparation, playback, and pauses; stopping or finishing returns them to the note.
 Errors stay inline. Controls wrap on narrow screens and stop audio when the note or reading mode changes. No word highlighting
 is added. Speech comes from a separate offline service on this computer.

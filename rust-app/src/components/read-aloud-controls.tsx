@@ -111,7 +111,7 @@ export function ReadAloudControls({ getText }: { getText: () => string }) {
   return (
     <div className="grid min-h-7 gap-2">
       <div role="group" aria-label="Read aloud" className={`flex flex-wrap items-center gap-2${active
-        ? ' fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 max-w-[calc(100vw-2rem)] rounded-xl bg-background p-3 shadow-lg'
+        ? ' fixed right-4 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3rem)] z-30 max-w-[calc(100vw-2rem)] rounded-xl bg-background p-3 shadow-lg'
         : ''}`}>
         <Button variant="outline" size="sm" disabled={status === 'loading'}
           onClick={() => void (active ? togglePause() : start())}>

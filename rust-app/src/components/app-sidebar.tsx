@@ -9,11 +9,9 @@ import {
   FolderOpen,
   FolderPlus,
   LayoutDashboard,
-  Keyboard,
   Network,
   Paperclip,
   Pencil,
-  Settings,
   Trash2,
 } from 'lucide-react'
 
@@ -34,7 +32,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupAction,
   SidebarGroupContent,
@@ -244,9 +241,7 @@ type AppSidebarProps = {
   onDelete?: (target: DeleteTarget) => void
   onRename?: (target: RenameTarget) => void
   onRemoveRoot?: (dir: string) => void
-  onOpenSettings?: () => void
   onOpenBookmarks?: () => void
-  onOpenShortcuts?: () => void
 }
 
 export function AppSidebar({
@@ -263,9 +258,7 @@ export function AppSidebar({
   onDelete,
   onRename,
   onRemoveRoot,
-  onOpenSettings,
   onOpenBookmarks,
-  onOpenShortcuts,
 }: AppSidebarProps) {
   const { isMobile: sidebarIsMobile, setOpen, openMobile, setOpenMobile } = useSidebar()
   const menuRef = useRef<HTMLElement>(null)
@@ -479,22 +472,6 @@ export function AppSidebar({
         </ItemMenu>
       </SidebarContent>
 
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Keyboard shortcuts" onClick={onOpenShortcuts}>
-              <Keyboard />
-              <span>Keyboard shortcuts</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Settings" onClick={onOpenSettings}>
-              <Settings />
-              <span>Settings</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
       <SidebarRail />
       </nav>
     </Sidebar>

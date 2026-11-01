@@ -17,9 +17,7 @@ import {
   FileText,
   Folder,
   Pencil,
-  RefreshCw,
   Save,
-  Settings,
   SquareArrowOutUpRight,
   Trash2,
   Globe,
@@ -38,6 +36,7 @@ import { RenameNoteDialog } from '@/components/rename-note-dialog'
 import { BookmarksDialog } from '@/components/bookmarks-dialog'
 import { SettingsDialog } from '@/components/settings-dialog'
 import { ShortcutsDialog } from '@/components/shortcuts-dialog'
+import { QuickActions } from '@/components/quick-actions'
 import { isTypingTarget, navigationShortcut } from '@/lib/navigation-shortcuts.ts'
 import {
   Breadcrumb,
@@ -678,43 +677,6 @@ function startEditing() {
                   <ShortcutHint />
                 </TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Reload folders"
-                    aria-keyshortcuts="F5"
-                    disabled={refreshing}
-                    onClick={() => void refreshFolders()}
-                  >
-                    <RefreshCw className={refreshing ? 'animate-spin' : undefined} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Reload folders
-                  <Kbd>F5</Kbd>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Settings"
-                    onClick={() => {
-                      if (!confirmLeave()) return
-                      setSettingsOpen(true)
-                    }}
-                  >
-                    <Settings />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Settings
-                  <ShortcutHint keyLabel="," />
-                </TooltipContent>
-              </Tooltip>
               </div>
               <WindowControls />
             </div>
@@ -757,15 +719,10 @@ function startEditing() {
                 : undefined
             }
             onRemoveRoot={desktop ? removeNotesFolder : undefined}
-            onOpenSettings={() => {
-              if (!confirmLeave()) return
-              setSettingsOpen(true)
-            }}
             onOpenBookmarks={() => {
               if (!confirmLeave()) return
               setBookmarksOpen(true)
             }}
-            onOpenShortcuts={() => setShortcutsOpen(true)}
           />
           <SidebarInset className="min-h-0 overflow-hidden">
             <div ref={splitRowRef} className="flex min-h-0 flex-1">
@@ -914,6 +871,15 @@ function startEditing() {
             </div>
           </SidebarInset>
           </div>
+          <QuickActions
+            refreshing={refreshing}
+            onReload={() => void refreshFolders()}
+            onOpenShortcuts={() => setShortcutsOpen(true)}
+            onOpenSettings={() => {
+              if (!confirmLeave()) return
+              setSettingsOpen(true)
+            }}
+          />
           <SearchCommand
             open={searchOpen}
             onOpenChange={setSearchOpen}
@@ -1002,7 +968,7 @@ function Dashboard({
     <div className={`${PAGE_SHELL} workspace-home`}>
       <header className="workspace-heading">
         <div>
-          <h1>{folder ? folder.label : 'Your workspace'}{isGithubRepo && <GithubMark className="size-6" />}</h1>
+          <h1>{folder ? folder.label : 'Your workspace'}{isGithubRepo && <GithubMark className="size-5" />}</h1>
           <p>{folder ? folder.focus || 'Browse the files in this folder.' : 'A little space for everything you’re thinking about.'}</p>
         </div>
         <span className="workspace-count">{topicCount} {topicCount === 1 ? 'file' : 'files'}</span>
@@ -1010,13 +976,12 @@ function Dashboard({
 
       {last && lastPage && (
         <button type="button" className="continue-note" onClick={() => onOpen(last)}>
-          <div className="continue-icon"><FileText className="size-5" /></div>
-          <div className="min-w-0 flex-1">
-            <span className="text-xs text-muted-foreground">Pick up where you left off</span>
-            <strong className="block truncate font-medium">{lastPage.title}</strong>
-            {lastSection && <span className="text-xs text-muted-foreground">{lastSection.label}</span>}
-          </div>
-          <span className="continue-action inline-flex items-center gap-2">Continue <ArrowRight aria-hidden className="size-4" /></span>
+          <FileText aria-hidden className="continue-icon size-4 shrink-0" />
+          <span className="flex min-w-0 flex-1 items-baseline gap-2">
+            <strong className="truncate font-medium">{lastPage.title}</strong>
+            {lastSection && <span className="shrink-0 text-xs text-muted-foreground">{lastSection.label}</span>}
+          </span>
+          <span className="continue-action inline-flex shrink-0 items-center gap-1.5">Continue reading <ArrowRight aria-hidden className="size-3.5" /></span>
         </button>
       )}
 
@@ -1026,7 +991,6 @@ function Dashboard({
           <span>{nodes.length} {nodes.length === 1 ? 'item' : 'items'}</span>
         </div>
         <div className="library-table">
-          <div className="library-table-head" aria-hidden="true"><span>Name</span><span>Contents</span><span /></div>
           {nodes.map((node) => {
             const href = hrefForNode(node)
             const isDir = node.type === 'dir'
@@ -1035,10 +999,10 @@ function Dashboard({
             const Icon = isDir ? Folder : FileText
             return (
               <button key={node.id} type="button" className="library-row" onClick={() => href && onOpen(href)}>
-                <span className={`library-file-icon ${isDir ? 'is-folder' : ''}`}><Icon className="size-5" /></span>
+                <span className={`library-file-icon ${isDir ? 'is-folder' : ''}`}><Icon className="size-4" /></span>
                 <span className="min-w-0 flex-1"><strong className="block truncate font-medium">{node.label}</strong>{preview && <span className="block truncate text-xs text-muted-foreground">{preview}</span>}</span>
                 <span className="library-file-kind">{isDir ? `${count} ${count === 1 ? 'file' : 'files'}` : fileKindLabel(node.page.file)}</span>
-                <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <ArrowRight className="library-row-arrow size-3.5 shrink-0" aria-hidden />
               </button>
             )
           })}
