@@ -42,7 +42,7 @@ const groups = [
       ['Esc', 'Cancel editing; asks before discarding unsaved changes.'],
       ['Ctrl + I / Ctrl + K', 'Italic / insert link in the visual editor.'],
       ['Ctrl + K, Ctrl + O', 'Attach a notes folder (desktop). Press Ctrl + O within half a second.'],
-      ['F', 'Enter or leave HTML fullscreen while focus is outside the preview frame. Esc also leaves fullscreen.'],
+      ['F', 'Enter or leave fullscreen for the open file (for HTML, while focus is outside the preview frame). Esc also leaves fullscreen.'],
     ],
   },
 ]

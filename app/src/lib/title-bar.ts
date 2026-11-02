@@ -8,8 +8,8 @@ export type TitleBarOverlay = {
 
 export function titleBarOverlay(dark: boolean): TitleBarOverlay {
   return {
-    color: dark ? '#252525' : '#ffffff',
-    symbolColor: dark ? '#fafafa' : '#262626',
+    color: dark ? '#0f0f11' : '#eeeeef',
+    symbolColor: dark ? '#ececee' : '#18181b',
     height: TITLE_BAR_HEIGHT,
   }
 }

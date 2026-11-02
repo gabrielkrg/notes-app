@@ -1,4 +1,4 @@
-import { ArrowLeftRight, X } from 'lucide-react'
+import { ArrowLeftRight, X } from '@/components/icons'
 
 import { Button } from '@/components/ui/button'
 import { CodeEditor } from '@/components/code-editor'

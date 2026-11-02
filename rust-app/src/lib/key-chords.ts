@@ -85,7 +85,7 @@ export function isEditNoteShortcut(event: {
   return String(event.key || '').toLowerCase() === 'e'
 }
 
-export function isHtmlFullscreenShortcut(event: {
+export function isFullscreenShortcut(event: {
   key?: string
   metaKey?: boolean
   ctrlKey?: boolean

@@ -14,6 +14,7 @@ import {
   isHtmlPreviewFindMessage,
   isHtmlPreviewFindResultMessage,
   isHtmlPreviewHeightMessage,
+  previewHeadingsOf,
   isHtmlPreviewScrollMessage,
   isHtmlPreviewStorageMessage,
   previewBootstrapSource,
@@ -304,5 +305,40 @@ describe('html preview find messages', () => {
       isHtmlPreviewFindMessage({ type: HTML_PREVIEW_FIND_MESSAGE, query: 'hello', index: 0, reveal: 'no' }),
       false,
     )
+  })
+})
+
+describe('previewHeadingsOf', () => {
+  it('keeps valid h1-h3 entries reported by the frame', () => {
+    assert.deepEqual(
+      previewHeadingsOf({
+        type: HTML_PREVIEW_HEIGHT_MESSAGE,
+        height: 900,
+        headings: [
+          { text: 'Intro', level: 1, top: 0 },
+          { text: 'Setup', level: 2, top: 320 },
+          { text: '', level: 2, top: 400 },
+          { text: 'Deep', level: 5, top: 500 },
+          { text: 'Bad', level: 3, top: Number.NaN },
+        ],
+      }),
+      [
+        { text: 'Intro', level: 1, top: 0 },
+        { text: 'Setup', level: 2, top: 320 },
+      ],
+    )
+  })
+
+  it('returns nothing when the frame sends no headings', () => {
+    assert.deepEqual(previewHeadingsOf({ type: HTML_PREVIEW_HEIGHT_MESSAGE, height: 10 }), [])
+    assert.deepEqual(previewHeadingsOf(null), [])
+  })
+})
+
+describe('withPreviewHeightReporter headings', () => {
+  it('collapses whitespace in heading text without dropping letters', () => {
+    const html = withPreviewHeightReporter('<body><h2>Installation</h2></body>')
+    assert.ok(html.includes(".replace(/\\s+/g, ' ')"))
+    assert.ok(!html.includes(".replace(/s+/g, ' ')"))
   })
 })

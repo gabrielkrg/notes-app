@@ -449,6 +449,23 @@ export function isHtmlPreviewHeightMessage(
   )
 }
 
+export type PreviewHeading = { text: string; level: number; top: number }
+
+/** Headings the preview frame reports with its height; malformed entries are dropped. */
+export function previewHeadingsOf(data: unknown): PreviewHeading[] {
+  const list = (data as { headings?: unknown } | null)?.headings
+  if (!Array.isArray(list)) return []
+  return list.filter(
+    (item): item is PreviewHeading =>
+      Boolean(item) &&
+      typeof item.text === 'string' &&
+      item.text.length > 0 &&
+      [1, 2, 3].includes(item.level) &&
+      typeof item.top === 'number' &&
+      Number.isFinite(item.top),
+  )
+}
+
 export function withPreviewHeightReporter(html: string): string {
   const script = `<script data-notes-preview-height>
 (function () {
@@ -462,8 +479,19 @@ export function withPreviewHeightReporter(html: string): string {
       body ? body.offsetHeight : 0
     );
   }
+  function headings() {
+    var out = [];
+    var nodes = document.querySelectorAll('h1, h2, h3');
+    var offset = window.scrollY || 0;
+    for (var i = 0; i < nodes.length; i++) {
+      var text = (nodes[i].textContent || '').replace(/\\s+/g, ' ').trim();
+      if (!text) continue;
+      out.push({ text: text, level: Number(nodes[i].tagName.charAt(1)), top: nodes[i].getBoundingClientRect().top + offset });
+    }
+    return out;
+  }
   function report() {
-    parent.postMessage({ type: ${JSON.stringify(HTML_PREVIEW_HEIGHT_MESSAGE)}, height: height() }, '*');
+    parent.postMessage({ type: ${JSON.stringify(HTML_PREVIEW_HEIGHT_MESSAGE)}, height: height(), headings: headings() }, '*');
   }
   if (typeof ResizeObserver !== 'undefined') {
     var observer = new ResizeObserver(report);

@@ -26,11 +26,26 @@ export function clearFindHighlight(doc: Document = document): void {
   highlightStore(doc)?.delete(FIND_HIGHLIGHT)
 }
 
+// Injected at runtime rather than written in styles.css: the CSS minifier
+// (Lightning CSS) does not know the ::highlight() pseudo-element yet and warns
+// on every build.
+const FIND_STYLE_ID = 'notes-find-highlight-style'
+const FIND_STYLE = `::highlight(${FIND_HIGHLIGHT}){color:inherit;background-color:color-mix(in oklch, var(--highlight, rgb(249 226 175)) 72%, transparent)}`
+
+function ensureHighlightStyle(doc: Document): void {
+  if (doc.getElementById(FIND_STYLE_ID)) return
+  const style = doc.createElement('style')
+  style.id = FIND_STYLE_ID
+  style.textContent = FIND_STYLE
+  ;(doc.head || doc.documentElement).appendChild(style)
+}
+
 export function highlightRange(range: Range): boolean {
   const doc = range.startContainer.ownerDocument || document
   const Highlight = HighlightCtor(doc)
   const store = highlightStore(doc)
   if (!Highlight || !store) return false
+  ensureHighlightStyle(doc)
   store.set(FIND_HIGHLIGHT, new Highlight(range))
   return true
 }

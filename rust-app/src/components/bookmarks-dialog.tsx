@@ -1,4 +1,4 @@
-import { Bookmark, FileText } from 'lucide-react'
+import { Bookmark, FileText } from '@/components/icons'
 
 import { Button } from '@/components/ui/button'
 import {

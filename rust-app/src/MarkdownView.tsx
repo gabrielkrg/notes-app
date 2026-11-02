@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check } from '@/components/icons'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import Annotator, { Annotated } from './Annotator.tsx'

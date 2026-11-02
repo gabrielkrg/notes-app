@@ -1,4 +1,4 @@
-import { ChevronRight, FileText, Folder } from 'lucide-react'
+import { ChevronRight, FileText, Folder } from '@/components/icons'
 
 import {
   Collapsible,

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pause, Play, Square, Volume2 } from 'lucide-react'
+import { Pause, Play, Square, Volume2 } from '@/components/icons'
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { decodePcm, speechFrames } from '@/lib/read-aloud'
 
 type Session = { context: AudioContext; abort: AbortController }
@@ -111,7 +112,7 @@ export function ReadAloudControls({ getText }: { getText: () => string }) {
   return (
     <div className="grid min-h-7 gap-2">
       <div role="group" aria-label="Read aloud" className={`flex flex-wrap items-center gap-2${active
-        ? ' fixed right-4 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3rem)] z-30 max-w-[calc(100vw-2rem)] rounded-xl bg-background p-3 shadow-lg'
+        ? ' read-aloud-floating fixed z-30 max-w-[calc(100vw-2rem)] rounded-xl border bg-popover p-2'
         : ''}`}>
         <Button variant="outline" size="sm" disabled={status === 'loading'}
           onClick={() => void (active ? togglePause() : start())}>
@@ -119,15 +120,17 @@ export function ReadAloudControls({ getText }: { getText: () => string }) {
           {status === 'loading' ? 'Preparing voice…' : status === 'paused' ? 'Resume' : status === 'playing' ? 'Pause' : 'Read aloud'}
         </Button>
         {active && <Button variant="ghost" size="sm" onClick={stop}><Square />Stop</Button>}
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          Speed
-          <select aria-label="Reading speed" value={speed} disabled={active}
-            title={active ? 'Stop reading to change speed' : 'Reading speed'}
-            onChange={(event) => setSpeed(Number(event.target.value))}
-            className="h-7 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
-            {[0.75, 1, 1.25, 1.5, 2].map((value) => <option key={value} value={value}>{value}×</option>)}
-          </select>
-        </label>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span id="read-aloud-speed">Speed</span>
+          <Select value={String(speed)} disabled={active} onValueChange={(value) => setSpeed(Number(value))}>
+            <SelectTrigger size="sm" aria-labelledby="read-aloud-speed" title={active ? 'Stop reading to change speed' : 'Reading speed'} className="min-w-18 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper" className="min-w-24">
+              {[0.75, 1, 1.25, 1.5, 2].map((value) => <SelectItem key={value} value={String(value)} className="text-xs">{value}×</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
         <span role="status" className="sr-only">{status === 'loading' ? 'Preparing local voice' : status === 'playing' ? 'Reading aloud' : status === 'paused' ? 'Reading paused' : ''}</span>
       </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

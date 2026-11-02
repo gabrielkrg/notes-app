@@ -1,9 +1,9 @@
-import { ChevronDown, ChevronUp, Search, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Search, X } from '@/components/icons'
 import { useCallback, useLayoutEffect, useRef, type KeyboardEvent, type RefObject } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import type { FindResult } from '@/lib/find-in-page.ts'
-import { cn } from '@/lib/utils'
 
 export function FindBar({
   query,
@@ -61,7 +61,7 @@ export function FindBar({
   return (
     <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-lg border bg-background p-1.5 shadow-sm">
       <Search className="ml-1.5 size-4 shrink-0 text-muted-foreground" />
-      <input
+      <Input
         ref={setInput}
         type="text"
         value={query}
@@ -72,11 +72,7 @@ export function FindBar({
         autoComplete="off"
         autoCorrect="off"
         spellCheck={false}
-        className={cn(
-          'h-8 min-w-40 flex-1 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none md:text-sm',
-          'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-          'dark:bg-input/30',
-        )}
+        className="min-w-40 flex-1"
       />
       <span className="min-w-16 px-1 text-right text-xs tabular-nums text-muted-foreground">{label}</span>
       <Button

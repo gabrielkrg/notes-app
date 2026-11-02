@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Keyboard, RefreshCw, Settings } from 'lucide-react'
+import { Keyboard, RefreshCw, Settings } from '@/components/icons'
 
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'

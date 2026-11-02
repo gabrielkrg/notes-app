@@ -14,16 +14,16 @@ import {
 describe('titleBarOverlay', () => {
   it('uses dark chrome colors at the shared title-bar height', () => {
     assert.deepEqual(titleBarOverlay(true), {
-      color: '#252525',
-      symbolColor: '#fafafa',
+      color: '#0f0f11',
+      symbolColor: '#ececee',
       height: TITLE_BAR_HEIGHT,
     })
   })
 
   it('uses light chrome colors at the shared title-bar height', () => {
     assert.deepEqual(titleBarOverlay(false), {
-      color: '#ffffff',
-      symbolColor: '#262626',
+      color: '#eeeeef',
+      symbolColor: '#18181b',
       height: TITLE_BAR_HEIGHT,
     })
   })

@@ -2,35 +2,32 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 
 import {
   applyFontSize,
-  applyPalette,
   applyTypeface,
   persistFontSize,
-  persistPalette,
+  persistShowToc,
   persistTypeface,
   readFontSize,
-  readPalette,
+  readShowToc,
   readTypeface,
   syncDesktopTitleBar,
-  typefaceForPalette,
   type FontSize,
-  type Palette,
   type Typeface,
 } from './appearance.ts'
 
 const AppearanceContext = createContext<{
   fontSize: FontSize
-  palette: Palette
   typeface: Typeface
+  showToc: boolean
   setFontSize: (size: FontSize) => void
-  setPalette: (palette: Palette) => void
   setTypeface: (typeface: Typeface) => void
+  setShowToc: (show: boolean) => void
 }>({
   fontSize: 'medium',
-  palette: 'ink',
   typeface: 'grotesk-merriweather',
+  showToc: true,
   setFontSize: () => {},
-  setPalette: () => {},
   setTypeface: () => {},
+  setShowToc: () => {},
 })
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
@@ -39,16 +36,17 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     if (typeof document !== 'undefined') applyFontSize(size)
     return size
   })
-  const [palette, setPaletteState] = useState<Palette>(() => {
-    const next = readPalette()
-    if (typeof document !== 'undefined') applyPalette(next)
-    return next
-  })
   const [typeface, setTypefaceState] = useState<Typeface>(() => {
     const next = readTypeface()
     if (typeof document !== 'undefined') applyTypeface(next)
     return next
   })
+
+  const [showToc, setShowTocState] = useState(readShowToc)
+
+  useEffect(() => {
+    persistShowToc(showToc)
+  }, [showToc])
 
   useEffect(() => {
     applyFontSize(fontSize)
@@ -56,10 +54,8 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   }, [fontSize])
 
   useEffect(() => {
-    applyPalette(palette)
-    persistPalette(palette)
     syncDesktopTitleBar()
-  }, [palette])
+  }, [])
 
   useEffect(() => {
     applyTypeface(typeface)
@@ -70,14 +66,11 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     <AppearanceContext.Provider
       value={{
         fontSize,
-        palette,
         typeface,
+        showToc,
         setFontSize: setFontSizeState,
-        setPalette: (next) => {
-          setPaletteState(next)
-          setTypefaceState(typefaceForPalette(next))
-        },
         setTypeface: setTypefaceState,
+        setShowToc: setShowTocState,
       }}
     >
       {children}

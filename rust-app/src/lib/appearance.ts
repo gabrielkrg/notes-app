@@ -1,5 +1,5 @@
 import { storageKey } from './config.ts'
-import { TITLE_BAR_HEIGHT, titleBarOverlay, type TitleBarOverlay } from './title-bar.ts'
+import { titleBarOverlay } from './title-bar.ts'
 
 export const FONT_SIZES = [
   { id: 'small', label: 'Small', value: '16px' },
@@ -67,6 +67,13 @@ export const TYPEFACES = [
     heading: 'var(--font-source-serif)',
   },
   {
+    id: 'jetbrains',
+    label: 'JetBrains Mono',
+    faces: 'JetBrains Mono',
+    sans: 'var(--font-jetbrains-mono)',
+    heading: 'var(--font-jetbrains-mono)',
+  },
+  {
     id: 'news',
     label: 'News',
     faces: 'Newsreader + Plex',
@@ -77,72 +84,21 @@ export const TYPEFACES = [
 
 export type Typeface = (typeof TYPEFACES)[number]['id']
 
-export const PALETTES = [
-  { id: 'ink', label: 'Ink', swatch: '#d4d4d8', typeface: 'grotesk-merriweather' },
-  { id: 'sepia', label: 'Sepia', swatch: '#c9a36b', typeface: 'literata' },
-  { id: 'forest', label: 'Forest', swatch: '#5f8a68', typeface: 'mono-grotesk' },
-  { id: 'slate', label: 'Slate', swatch: '#7a8fa3', typeface: 'grotesk' },
-  { id: 'dusk', label: 'Dusk', swatch: '#c48b8b', typeface: 'literata-grotesk' },
-  { id: 'midnight', label: 'Midnight', swatch: '#3d5a80', typeface: 'merriweather-mono' },
-  { id: 'abyss', label: 'Abyss', swatch: '#4a7fd4', typeface: 'mono-grotesk' },
-] as const
-
-export type Palette = (typeof PALETTES)[number]['id']
-
 export const FONT_SIZE_STORAGE_KEY = storageKey('font-size')
-export const PALETTE_STORAGE_KEY = storageKey('palette')
 export const TYPEFACE_STORAGE_KEY = storageKey('typeface')
-
-const TITLE_BAR: Record<Palette, { light: TitleBarOverlay; dark: TitleBarOverlay }> = {
-  ink: {
-    light: titleBarOverlay(false),
-    dark: titleBarOverlay(true),
-  },
-  sepia: {
-    light: { color: '#f3ead8', symbolColor: '#3b3226', height: TITLE_BAR_HEIGHT },
-    dark: { color: '#2a241c', symbolColor: '#efe4d2', height: TITLE_BAR_HEIGHT },
-  },
-  forest: {
-    light: { color: '#e8f0e8', symbolColor: '#243028', height: TITLE_BAR_HEIGHT },
-    dark: { color: '#1a221c', symbolColor: '#e4eee6', height: TITLE_BAR_HEIGHT },
-  },
-  slate: {
-    light: { color: '#eef2f6', symbolColor: '#243040', height: TITLE_BAR_HEIGHT },
-    dark: { color: '#1c2228', symbolColor: '#e8eef4', height: TITLE_BAR_HEIGHT },
-  },
-  dusk: {
-    light: { color: '#f4e8e6', symbolColor: '#3a2428', height: TITLE_BAR_HEIGHT },
-    dark: { color: '#2a1e20', symbolColor: '#f0e0de', height: TITLE_BAR_HEIGHT },
-  },
-  midnight: {
-    light: { color: '#e8eef6', symbolColor: '#1a2438', height: TITLE_BAR_HEIGHT },
-    dark: { color: '#121826', symbolColor: '#dce6f4', height: TITLE_BAR_HEIGHT },
-  },
-  abyss: {
-    light: { color: '#f4f6f9', symbolColor: '#1b2330', height: TITLE_BAR_HEIGHT },
-    dark: { color: '#0c111c', symbolColor: '#c8d3e4', height: TITLE_BAR_HEIGHT },
-  },
-}
+export const TOC_STORAGE_KEY = storageKey('toc')
 
 type StyleTarget = {
   style: { setProperty(name: string, value: string): void }
-  dataset: { fontSize?: string; palette?: string; typeface?: string }
+  dataset: { fontSize?: string; typeface?: string }
 }
 
 export function parseFontSize(value: unknown): FontSize {
   return FONT_SIZES.some((size) => size.id === value) ? (value as FontSize) : 'medium'
 }
 
-export function parsePalette(value: unknown): Palette {
-  return PALETTES.some((palette) => palette.id === value) ? (value as Palette) : 'ink'
-}
-
 export function parseTypeface(value: unknown): Typeface {
   return TYPEFACES.some((typeface) => typeface.id === value) ? (value as Typeface) : 'grotesk-merriweather'
-}
-
-export function typefaceForPalette(id: Palette): Typeface {
-  return PALETTES.find((palette) => palette.id === parsePalette(id))!.typeface
 }
 
 export function fontSizeCustomProperties(id: FontSize): { '--font-size-base': string } {
@@ -165,13 +121,6 @@ export function typefaceCustomProperties(id: Typeface): {
   }
 }
 
-export function paletteCustomProperties(id: Palette): {
-  '--font-sans': string
-  '--font-heading': string
-} {
-  return typefaceCustomProperties(typefaceForPalette(id))
-}
-
 export function applyFontSize(id: FontSize, target: StyleTarget = document.documentElement): void {
   const size = parseFontSize(id)
   const vars = fontSizeCustomProperties(size)
@@ -179,20 +128,11 @@ export function applyFontSize(id: FontSize, target: StyleTarget = document.docum
   target.dataset.fontSize = size
 }
 
-export function applyPalette(id: Palette, target: StyleTarget = document.documentElement): void {
-  target.dataset.palette = parsePalette(id)
-}
-
 export function applyTypeface(id: Typeface, target: StyleTarget = document.documentElement): void {
   const typeface = parseTypeface(id)
   const vars = typefaceCustomProperties(typeface)
   for (const [name, value] of Object.entries(vars)) target.style.setProperty(name, value)
   target.dataset.typeface = typeface
-}
-
-export function titleBarOverlayForPalette(id: Palette, dark: boolean): TitleBarOverlay {
-  const pair = TITLE_BAR[parsePalette(id)]
-  return dark ? pair.dark : pair.light
 }
 
 export function readFontSize(): FontSize {
@@ -211,22 +151,6 @@ export function persistFontSize(id: FontSize): void {
   }
 }
 
-export function readPalette(): Palette {
-  try {
-    return parsePalette(localStorage.getItem(PALETTE_STORAGE_KEY))
-  } catch {
-    return 'ink'
-  }
-}
-
-export function persistPalette(id: Palette): void {
-  try {
-    localStorage.setItem(PALETTE_STORAGE_KEY, parsePalette(id))
-  } catch {
-    /* ignore */
-  }
-}
-
 export function readTypeface(): Typeface {
   try {
     const stored = localStorage.getItem(TYPEFACE_STORAGE_KEY)
@@ -234,7 +158,7 @@ export function readTypeface(): Typeface {
   } catch {
     /* ignore */
   }
-  return typefaceForPalette(readPalette())
+  return 'grotesk-merriweather'
 }
 
 export function persistTypeface(id: Typeface): void {
@@ -249,5 +173,22 @@ export function syncDesktopTitleBar(dark = document.documentElement.classList.co
   if (typeof window === 'undefined' || !window.desktop?.setTitleBarOverlay) return
   // Use known light/dark tokens. Parsing computed CSS fails for oklch and used
   // to leave the Windows caption overlay stuck on the dark fallback.
-  void window.desktop.setTitleBarOverlay(titleBarOverlayForPalette(readPalette(), dark))
+  void window.desktop.setTitleBarOverlay(titleBarOverlay(dark))
+}
+
+/** Whether the "On this page" outline is shown beside notes. Defaults to shown. */
+export function readShowToc(): boolean {
+  try {
+    return localStorage.getItem(TOC_STORAGE_KEY) !== 'hidden'
+  } catch {
+    return true
+  }
+}
+
+export function persistShowToc(show: boolean): void {
+  try {
+    localStorage.setItem(TOC_STORAGE_KEY, show ? 'shown' : 'hidden')
+  } catch {
+    /* ignore */
+  }
 }

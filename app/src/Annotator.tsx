@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { Highlighter, StickyNote, Trash2 } from 'lucide-react'
+import { Highlighter, StickyNote, Trash2 } from '@/components/icons'
 
 import { Button } from '@/components/ui/button'
 import {

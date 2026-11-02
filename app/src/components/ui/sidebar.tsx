@@ -23,7 +23,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { PanelLeftIcon } from "lucide-react"
+import { PanelLeftIcon } from "@/components/icons"
 import {
   SIDEBAR_WIDTH_DEFAULT,
   clampSidebarWidth,

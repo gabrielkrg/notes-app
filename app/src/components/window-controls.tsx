@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Copy, Minus, Square, X } from 'lucide-react'
+import { Copy, Minus, Square, X } from '@/components/icons'
 
 import { Button } from '@/components/ui/button'
 import { isDesktop } from '@/lib/desktop'

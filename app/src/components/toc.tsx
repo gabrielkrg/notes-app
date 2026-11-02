@@ -1,5 +1,6 @@
 import { useEffect, useState, type RefObject } from 'react'
-import { List } from 'lucide-react'
+import { List, X } from '@/components/icons'
+import { Button } from '@/components/ui/button'
 
 export type TocItem = { id: string; text: string; level: number }
 
@@ -44,7 +45,14 @@ export function useToc(root: RefObject<HTMLElement | null>, dep: unknown) {
   return { items, active }
 }
 
-function TocLinks({ items, active, onPick }: { items: TocItem[]; active: string; onPick?: () => void }) {
+/** Jumps to a heading. HTML notes pass their own, since their headings live inside the preview frame. */
+export type TocJump = (item: TocItem) => void
+
+const defaultJump: TocJump = (item) => document.getElementById(item.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+
+const INDENT: Record<number, string> = { 2: 'pl-3', 3: 'pl-6', 4: 'pl-9' }
+
+function TocLinks({ items, active, onPick, onJump = defaultJump }: { items: TocItem[]; active: string; onPick?: () => void; onJump?: TocJump }) {
   return (
     <ul className="grid gap-1 text-sm">
       {items.map((item) => (
@@ -53,11 +61,11 @@ function TocLinks({ items, active, onPick }: { items: TocItem[]; active: string;
             href={`#${item.id}`}
             data-active={item.id === active || undefined}
             className={`block border-l py-1 text-muted-foreground transition-colors hover:text-foreground data-active:border-foreground data-active:text-foreground ${
-              item.level === 3 ? 'pl-6' : 'pl-3'
+              INDENT[item.level] ?? 'pl-3'
             }`}
             onClick={(event) => {
               event.preventDefault()
-              document.getElementById(item.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+              onJump(item)
               onPick?.()
             }}
           >
@@ -69,20 +77,25 @@ function TocLinks({ items, active, onPick }: { items: TocItem[]; active: string;
   )
 }
 
-export function Toc({ items, active }: { items: TocItem[]; active: string }) {
+export function Toc({ items, active, onJump, onHide }: { items: TocItem[]; active: string; onJump?: TocJump; onHide?: () => void }) {
   if (items.length < 2) return null
   return (
-    <nav aria-label="On this page" className="sticky top-8 hidden h-fit w-56 shrink-0 xl:block">
-      <p className="mb-2 flex items-center gap-2 text-sm font-medium">
+    <nav aria-label="On this page" className="toc sticky top-8 hidden h-fit w-56 shrink-0 xl:block">
+      <div className="mb-2 flex items-center gap-2 text-sm font-medium">
         <List className="size-4" aria-hidden="true" />
-        On this page
-      </p>
-      <TocLinks items={items} active={active} />
+        <span className="flex-1">On this page</span>
+        {onHide ? (
+          <Button variant="ghost" size="icon-xs" aria-label="Hide On this page" title="Hide On this page" onClick={onHide}>
+            <X />
+          </Button>
+        ) : null}
+      </div>
+      <TocLinks items={items} active={active} onJump={onJump} />
     </nav>
   )
 }
 
-export function TocMobile({ items, active }: { items: TocItem[]; active: string }) {
+export function TocMobile({ items, active, onJump }: { items: TocItem[]; active: string; onJump?: TocJump }) {
   if (items.length < 2) return null
   return (
     <details className="fixed inset-x-0 top-(--titlebar-height) z-20 border-b bg-background px-6 py-2 xl:hidden">
@@ -94,6 +107,7 @@ export function TocMobile({ items, active }: { items: TocItem[]; active: string 
         <TocLinks
           items={items}
           active={active}
+          onJump={onJump}
           onPick={() => document.querySelector<HTMLDetailsElement>('details[open].fixed')?.removeAttribute('open')}
         />
       </div>

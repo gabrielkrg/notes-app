@@ -5,6 +5,7 @@ import {
   FilePen,
   FileText,
   Folder,
+  CollapseAll,
   FolderMinus,
   FolderOpen,
   FolderPlus,
@@ -13,7 +14,7 @@ import {
   Paperclip,
   Pencil,
   Trash2,
-} from 'lucide-react'
+} from '@/components/icons'
 
 import {
   Collapsible,
@@ -45,7 +46,7 @@ import {
 } from '@/components/ui/sidebar'
 import { ShortcutHint } from '@/components/search-command'
 import { GithubMark } from '@/components/github-mark.tsx'
-import { GRAPH_ROUTE, hrefForNode, isGraphRoute, compareNavNodes, type NavDirNode, type NavNode, type NavPageNode } from '@/content.ts'
+import { GRAPH_ROUTE, countTopicPages, hrefForNode, isGraphRoute, compareNavNodes, type NavDirNode, type NavNode, type NavPageNode } from '@/content.ts'
 import { isGithubVirtualPath } from '@/lib/github-notes.ts'
 import { attachedRootForDir } from '@/lib/notes-roots.ts'
 import { centerScrollTop } from '@/lib/sidebar-scroll.ts'
@@ -355,7 +356,7 @@ export function AppSidebar({
               onClick={collapseAll}
               className="top-1.5 right-1 opacity-0 transition-opacity group-hover/folders-label:opacity-100 group-focus-within/folders-label:opacity-100 focus-visible:opacity-100"
             >
-              <FolderMinus />
+              <CollapseAll />
             </SidebarGroupAction>
           </TooltipTrigger>
           <TooltipContent>Collapse folders</TooltipContent>
@@ -405,7 +406,7 @@ export function AppSidebar({
                 <Paperclip strokeWidth={2.25} />
               </span>
               <span className="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-heading font-medium">Notes</span>
+                <span className="sidebar-brand-name truncate">Notes</span>
                 <span className="truncate text-xs text-muted-foreground">Personal notes</span>
               </span>
             </SidebarMenuButton>
@@ -684,6 +685,7 @@ function FolderNode({
     setOpenMobile(false)
   }
 
+  const fileCount = countTopicPages(node)
   const label = (
     <>
       <TreeTwist
@@ -694,8 +696,9 @@ function FolderNode({
       <Icon />
       <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">{node.label}</span>
       {isGithubRoot && (
-        <GithubMark className="ml-auto size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+        <GithubMark className="ml-auto size-3.5 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
       )}
+      <span className={`nav-count group-data-[collapsible=icon]:hidden ${isGithubRoot ? '' : 'ml-auto'}`} aria-label={`${fileCount} files`}>{fileCount}</span>
     </>
   )
 

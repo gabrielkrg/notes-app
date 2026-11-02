@@ -8,6 +8,8 @@ import {
   isHtmlPreviewHeightMessage,
   isHtmlPreviewScrollMessage,
   isHtmlPreviewStorageMessage,
+  previewHeadingsOf,
+  type PreviewHeading,
   readPreviewStorage,
   rewriteHtmlPreview,
   scrollOffsetForPreview,
@@ -43,6 +45,8 @@ function scrollParentOf(el: HTMLElement): HTMLElement {
 
 export type HtmlPreviewHandle = {
   search: (query: string, index: number, options?: { reveal?: boolean; focus?: boolean }) => Promise<FindResult>
+  /** Scrolls the page so the reported heading at this index sits at the top. */
+  scrollToHeading: (index: number) => void
 }
 
 export const HtmlPreview = forwardRef<HtmlPreviewHandle, {
@@ -51,14 +55,52 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, {
   files: Record<string, string>
   title: string
   fill?: boolean
-}>(function HtmlPreview({ file, html, files, title, fill = false }, ref) {
+  onHeadings?: (headings: PreviewHeading[]) => void
+  onActiveHeading?: (index: number) => void
+}>(function HtmlPreview({ file, html, files, title, fill = false, onHeadings, onActiveHeading }, ref) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const storageRef = useRef(readPreviewStorage(file))
   const [srcDoc, setSrcDoc] = useState(() => previewSrcDoc(file, html, files, undefined, storageRef.current))
   const [height, setHeight] = useState(0)
+  const headingsRef = useRef<PreviewHeading[]>([])
+  const onHeadingsRef = useRef(onHeadings)
+  const onActiveRef = useRef(onActiveHeading)
+  onHeadingsRef.current = onHeadings
+  onActiveRef.current = onActiveHeading
+
+  // Track which reported heading is at the top of the page as it scrolls.
+  useEffect(() => {
+    const iframe = iframeRef.current
+    if (!iframe || fill) return
+    const scroller = scrollParentOf(iframe)
+    let frame = 0
+    const update = () => {
+      frame = 0
+      const heads = headingsRef.current
+      if (!heads.length) return
+      const offset = iframe.getBoundingClientRect().top - scroller.getBoundingClientRect().top
+      const line = scroller.clientHeight * 0.3
+      let active = 0
+      heads.forEach((head, index) => {
+        if (offset + head.top <= line) active = index
+      })
+      onActiveRef.current?.(active)
+    }
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update)
+    }
+    scroller.addEventListener('scroll', onScroll, { passive: true })
+    update()
+    return () => {
+      scroller.removeEventListener('scroll', onScroll)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [fill, height])
 
   useEffect(() => {
     storageRef.current = readPreviewStorage(file)
+    headingsRef.current = []
+    onHeadingsRef.current?.([])
   }, [file])
 
   useEffect(() => {
@@ -98,6 +140,14 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, {
       if (event.source !== iframeRef.current?.contentWindow) return
       if (isHtmlPreviewHeightMessage(event.data)) {
         setHeight(event.data.height)
+        const heads = previewHeadingsOf(event.data)
+        const same =
+          heads.length === headingsRef.current.length &&
+          heads.every((head, index) => head.text === headingsRef.current[index].text && head.top === headingsRef.current[index].top)
+        if (!same) {
+          headingsRef.current = heads
+          onHeadingsRef.current?.(heads)
+        }
         return
       }
       if (isHtmlPreviewStorageMessage(event.data)) {
@@ -122,6 +172,24 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, {
   }, [file])
 
   useImperativeHandle(ref, () => ({
+    scrollToHeading(index: number) {
+      const iframe = iframeRef.current
+      const head = headingsRef.current[index]
+      if (!iframe || !head) return
+      const scroller = scrollParentOf(iframe)
+      scroller.scrollTo({
+        top: Math.max(
+          0,
+          scrollOffsetForPreview(
+            iframe.getBoundingClientRect().top,
+            scroller.getBoundingClientRect().top,
+            scroller.scrollTop,
+            head.top,
+          ),
+        ),
+        behavior: 'smooth',
+      })
+    },
     search(query: string, index: number, options?: { reveal?: boolean; focus?: boolean }) {
       const reveal = options?.reveal !== false
       const focus = options?.focus === true

@@ -5,7 +5,7 @@ import {
   CtrlKChord,
   isCancelEditShortcut,
   isEditNoteShortcut,
-  isHtmlFullscreenShortcut,
+  isFullscreenShortcut,
   isNewNoteShortcut,
   isReloadFoldersShortcut,
   isSettingsShortcut,
@@ -123,16 +123,16 @@ describe('isEditNoteShortcut', () => {
   })
 })
 
-describe('isHtmlFullscreenShortcut', () => {
+describe('isFullscreenShortcut', () => {
   it('matches F without a modifier', () => {
-    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'f' })), true)
-    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'F' })), true)
+    assert.equal(isFullscreenShortcut(keyEvent({ key: 'f' })), true)
+    assert.equal(isFullscreenShortcut(keyEvent({ key: 'F' })), true)
   })
 
   it('ignores F with a modifier and other keys', () => {
-    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'f', ctrlKey: true })), false)
-    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'f', metaKey: true })), false)
-    assert.equal(isHtmlFullscreenShortcut(keyEvent({ key: 'e' })), false)
+    assert.equal(isFullscreenShortcut(keyEvent({ key: 'f', ctrlKey: true })), false)
+    assert.equal(isFullscreenShortcut(keyEvent({ key: 'f', metaKey: true })), false)
+    assert.equal(isFullscreenShortcut(keyEvent({ key: 'e' })), false)
   })
 })
 

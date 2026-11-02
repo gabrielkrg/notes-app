@@ -371,7 +371,7 @@ export function GlobalGraph({ pages, onGo }: { pages: Pages; onGo: (route: strin
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Notes
           </p>
-          <h1 className="font-heading text-3xl font-medium tracking-tight">Graph</h1>
+          <h1 className="page-title">Graph</h1>
           <p className="text-sm text-muted-foreground">No notes yet.</p>
         </div>
       </div>
@@ -384,7 +384,7 @@ export function GlobalGraph({ pages, onGo }: { pages: Pages; onGo: (route: strin
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           Notes
         </p>
-        <h1 className="font-heading text-3xl font-medium tracking-tight">Graph</h1>
+        <h1 className="page-title">Graph</h1>
         <p className="text-sm text-muted-foreground">
           {noteLabel} · {linkLabel}. Click a note to open it.
         </p>

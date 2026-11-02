@@ -21,10 +21,12 @@ import {
   SquareArrowOutUpRight,
   Trash2,
   Globe,
+  List,
   Maximize2,
+  Search,
   Minimize2,
   X,
-} from 'lucide-react'
+} from '@/components/icons'
 
 import { AppSidebar } from '@/components/app-sidebar'
 import { GithubMark } from '@/components/github-mark.tsx'
@@ -47,6 +49,9 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Button } from '@/components/ui/button'
+import { Toaster } from '@/components/ui/sonner'
+import { toast } from 'sonner'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { ReadAloudControls } from '@/components/read-aloud-controls'
 import {
   Card,
@@ -65,13 +70,14 @@ import { CodeEditor, type CodeEditorHandle } from '@/components/code-editor'
 import { PlainText, type PlainTextHandle } from '@/components/plain-text'
 import { FindBar } from '@/components/find-bar'
 import { HtmlPreview, type HtmlPreviewHandle } from '@/components/html-preview'
+import type { PreviewHeading } from '@/lib/html-preview.ts'
 import { rewriteHtmlPreview } from '@/lib/html-preview.ts'
 import { SearchCommand, SearchTrigger, ShortcutHint } from '@/components/search-command'
 import { WindowControls } from '@/components/window-controls'
 import { Kbd } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { HighlightProvider } from '@/lib/highlight-provider.tsx'
-import { AppearanceProvider } from '@/lib/appearance-provider'
+import { AppearanceProvider, useAppearance } from '@/lib/appearance-provider'
 import { ThemeProvider } from '@/lib/theme'
 import { bookmarkEntries, persistBookmarks, readBookmarks, toggleBookmark } from '@/lib/bookmarks.ts'
 import { noteEditorHref, storageKey } from '@/lib/config.ts'
@@ -79,7 +85,7 @@ import { isDesktop } from '@/lib/desktop'
 import type { CreatedNote } from '@/lib/desktop.ts'
 import { fetchBrowserGithubNotes } from '@/lib/github-client.ts'
 import { isGithubVirtualPath, topLevelLabels } from '@/lib/github-notes.ts'
-import { CtrlKChord, isCancelEditShortcut, isEditNoteShortcut, isHtmlFullscreenShortcut, isNewNoteShortcut, isReloadFoldersShortcut, isSettingsShortcut } from '@/lib/key-chords'
+import { CtrlKChord, isCancelEditShortcut, isEditNoteShortcut, isFullscreenShortcut, isNewNoteShortcut, isReloadFoldersShortcut, isSettingsShortcut } from '@/lib/key-chords'
 import { isMobilePlatform } from '@/lib/title-bar.ts'
 import { clearFindHighlight, collectText, revealInElement } from '@/lib/find-dom.ts'
 import {
@@ -96,7 +102,7 @@ import type { NoteKind } from '@/lib/note-name.ts'
 import type { RenameTarget } from '@/lib/note-rename.ts'
 import { fileKind } from '@/lib/note-name.ts'
 import { SplitPane } from '@/components/split-pane'
-import { Toc, TocMobile, useToc } from '@/components/toc'
+import { Toc, TocMobile, useToc, type TocItem } from '@/components/toc'
 import {
   formatSplitWidth,
   loadSplitWidth,
@@ -348,7 +354,7 @@ export default function App() {
           onOpenFolder: () => {
             setSearchOpen(false)
             addNotesFolder().catch((err: unknown) => {
-              window.alert(err instanceof Error ? err.message : 'Could not add that folder')
+              toast.error(err instanceof Error ? err.message : 'Could not add that folder')
             })
           },
         })
@@ -468,7 +474,7 @@ function startEditing() {
       await reloadNotes()
       setDirty(false)
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Could not save the note')
+      toast.error(err instanceof Error ? err.message : 'Could not save the note')
     } finally {
       setSaving(false)
     }
@@ -497,7 +503,7 @@ function startEditing() {
       try {
         await write(file, noteRawRef.current)
       } catch (err) {
-        window.alert(err instanceof Error ? err.message : 'Could not save the note')
+        toast.error(err instanceof Error ? err.message : 'Could not save the note')
         await reloadNotes()
       }
     })
@@ -555,7 +561,7 @@ function startEditing() {
       })
       await handleCreated(created)
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Could not create that note')
+      toast.error(err instanceof Error ? err.message : 'Could not create that note')
     }
   }
 
@@ -756,6 +762,7 @@ function startEditing() {
                   </div>
                 ) : !page ? (
                   <Dashboard
+                    key={route}
                     last={last}
                     onOpen={go}
                     tree={tree}
@@ -933,11 +940,14 @@ function startEditing() {
           />
         </SidebarProvider>
         </TooltipProvider>
+        <Toaster position="bottom-center" />
       </HighlightProvider>
       </AppearanceProvider>
     </ThemeProvider>
   )
 }
+
+const LIBRARY_PAGE_SIZE = 12
 
 function Dashboard({
   last,
@@ -963,12 +973,21 @@ function Dashboard({
   const isGithubRepo = Boolean(folder && githubLabels.includes(folder.path))
 
   const recentPages = Object.values(pages).filter((item) => !item.isIndex).slice(0, 5)
+  const [query, setQuery] = useState('')
+  const [pageIndex, setPageIndex] = useState(0)
+  const needle = query.trim().toLowerCase()
+  const filteredNodes = needle
+    ? nodes.filter((node) => `${node.label} ${node.type === 'dir' ? node.focus ?? '' : node.page.blurb ?? ''}`.toLowerCase().includes(needle))
+    : nodes
+  const pageCount = Math.max(1, Math.ceil(filteredNodes.length / LIBRARY_PAGE_SIZE))
+  const currentPage = Math.min(pageIndex, pageCount - 1)
+  const visibleNodes = filteredNodes.slice(currentPage * LIBRARY_PAGE_SIZE, (currentPage + 1) * LIBRARY_PAGE_SIZE)
 
   return (
     <div className={`${PAGE_SHELL} workspace-home`}>
       <header className="workspace-heading">
         <div>
-          <h1>{folder ? folder.label : 'Your workspace'}{isGithubRepo && <GithubMark className="size-5" />}</h1>
+          <h1>{folder ? folder.label : 'Your workspace'}{isGithubRepo && <GithubMark className="size-4" />}</h1>
           <p>{folder ? folder.focus || 'Browse the files in this folder.' : 'A little space for everything you’re thinking about.'}</p>
         </div>
         <span className="workspace-count">{topicCount} {topicCount === 1 ? 'file' : 'files'}</span>
@@ -976,43 +995,79 @@ function Dashboard({
 
       {last && lastPage && (
         <button type="button" className="continue-note" onClick={() => onOpen(last)}>
-          <FileText aria-hidden className="continue-icon size-4 shrink-0" />
+          <span className="library-file-icon"><FileText aria-hidden className="size-4" /></span>
           <span className="flex min-w-0 flex-1 items-baseline gap-2">
-            <strong className="truncate font-medium">{lastPage.title}</strong>
-            {lastSection && <span className="shrink-0 text-xs text-muted-foreground">{lastSection.label}</span>}
+            <strong className="truncate">{lastPage.title}</strong>
+            {lastSection && <span className="shrink-0 text-muted-foreground">{lastSection.label}</span>}
           </span>
-          <span className="continue-action inline-flex shrink-0 items-center gap-1.5">Continue reading <ArrowRight aria-hidden className="size-3.5" /></span>
+          <span className="continue-action">Continue reading <ArrowRight aria-hidden className="size-3.5" /></span>
         </button>
       )}
 
       <section aria-labelledby="workspace-library-title" className="workspace-library">
         <div className="workspace-section-heading">
-          <h2 id="workspace-library-title">{folder ? 'In this folder' : 'Library'}</h2>
-          <span>{nodes.length} {nodes.length === 1 ? 'item' : 'items'}</span>
+          <h2 id="workspace-library-title">
+            {folder ? 'In this folder' : 'Library'}
+            <span className="section-count">{filteredNodes.length === nodes.length ? nodes.length : `${filteredNodes.length}/${nodes.length}`}</span>
+          </h2>
+          {nodes.length > 6 && (
+            <InputGroup className="library-search">
+              <InputGroupAddon><Search aria-hidden /></InputGroupAddon>
+              <InputGroupInput
+                type="search"
+                value={query}
+                onChange={(event) => { setQuery(event.target.value); setPageIndex(0) }}
+                placeholder={folder ? 'Filter this folder' : 'Filter library'}
+                aria-label="Filter library"
+              />
+            </InputGroup>
+          )}
         </div>
-        <div className="library-table">
-          {nodes.map((node) => {
+        <div className="library-grid">
+          {visibleNodes.map((node) => {
             const href = hrefForNode(node)
             const isDir = node.type === 'dir'
             const preview = isDir ? node.focus : node.page.blurb
             const count = isDir ? countTopicPages(node) : 0
+            const subfolders = isDir ? node.children.filter((child) => child.type === 'dir').length : 0
             const Icon = isDir ? Folder : FileText
             return (
-              <button key={node.id} type="button" className="library-row" onClick={() => href && onOpen(href)}>
-                <span className={`library-file-icon ${isDir ? 'is-folder' : ''}`}><Icon className="size-4" /></span>
-                <span className="min-w-0 flex-1"><strong className="block truncate font-medium">{node.label}</strong>{preview && <span className="block truncate text-xs text-muted-foreground">{preview}</span>}</span>
-                <span className="library-file-kind">{isDir ? `${count} ${count === 1 ? 'file' : 'files'}` : fileKindLabel(node.page.file)}</span>
-                <ArrowRight className="library-row-arrow size-3.5 shrink-0" aria-hidden />
+              <button key={node.id} type="button" className="library-card" onClick={() => href && onOpen(href)}>
+                <span className="library-card-top">
+                  <span className={`library-file-icon ${isDir ? 'is-folder' : ''}`}><Icon className="size-4" /></span>
+                  <span className="min-w-0 flex-1">
+                    <strong className="library-card-title">{node.label}</strong>
+                    <span className="library-card-preview">{preview || (isDir ? 'No description yet.' : node.page.file)}</span>
+                  </span>
+                </span>
+                <span className="library-card-footer">
+                  <span className="library-card-badge">{isDir ? `${count} ${count === 1 ? 'file' : 'files'}` : fileKindLabel(node.page.file)}</span>
+                  {isDir && subfolders > 0 && <span className="library-card-meta">{subfolders} {subfolders === 1 ? 'subfolder' : 'subfolders'}</span>}
+                  <span className="library-card-open">Open <ArrowRight aria-hidden className="size-3" /></span>
+                </span>
               </button>
             )
           })}
-          {!nodes.length && <p className="p-6 text-sm text-muted-foreground">Your library starts here. Add a folder or GitHub repository in Settings to bring in your notes.</p>}
         </div>
+        {!nodes.length && <p className="p-6 text-sm text-muted-foreground">Your library starts here. Add a folder or GitHub repository in Settings to bring in your notes.</p>}
+        {nodes.length > 0 && !filteredNodes.length && <p className="library-empty">Nothing matches “{query}”.</p>}
+        {pageCount > 1 && (
+          <nav className="library-pagination" aria-label="Library pages">
+            <span>{currentPage * LIBRARY_PAGE_SIZE + 1}–{Math.min((currentPage + 1) * LIBRARY_PAGE_SIZE, filteredNodes.length)} of {filteredNodes.length}</span>
+            <span className="flex items-center gap-1">
+              <Button variant="ghost" size="icon-sm" aria-label="Previous page" disabled={currentPage === 0} onClick={() => setPageIndex(currentPage - 1)}><ChevronLeft /></Button>
+              {Array.from({ length: pageCount }, (_, index) => (
+                <Button key={index} variant={index === currentPage ? 'outline' : 'ghost'} size="icon-sm" className="library-page" aria-current={index === currentPage ? 'page' : undefined} onClick={() => setPageIndex(index)}>{index + 1}</Button>
+              ))}
+              <Button variant="ghost" size="icon-sm" aria-label="Next page" disabled={currentPage === pageCount - 1} onClick={() => setPageIndex(currentPage + 1)}><ChevronRight /></Button>
+            </span>
+          </nav>
+        )}
       </section>
 
       {!folder && recentPages.length > 0 && (
         <section aria-labelledby="workspace-notes-title">
-          <div className="workspace-section-heading"><h2 id="workspace-notes-title">Explore your notes</h2><span>From your library</span></div>
+          <div className="workspace-section-heading"><h2 id="workspace-notes-title">Explore your notes</h2></div>
           <div className="workspace-note-list">
             {recentPages.map((item) => <button key={item.route} type="button" onClick={() => onOpen(item.route)}><FileText className="size-4 shrink-0 text-muted-foreground" /><span className="min-w-0 flex-1 truncate">{item.title}</span><span className="text-xs text-muted-foreground">{fileKindLabel(item.file)}</span></button>)}
           </div>
@@ -1111,7 +1166,7 @@ function Article({
   const markdown = kind === 'markdown'
   const htmlPreviewRef = useRef<HtmlPreviewHandle>(null)
   const previewStageRef = useRef<HTMLDivElement>(null)
-  const [htmlFullscreen, setHtmlFullscreen] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
   const viewFindRef = useRef<CodeEditorHandle | PlainTextHandle | null>(null)
   const viewRootRef = useRef<HTMLDivElement>(null)
   const [findOpen, setFindOpen] = useState(false)
@@ -1126,12 +1181,12 @@ function Article({
   findResultRef.current = findResult
 
   useEffect(() => {
-    setHtmlFullscreen(false)
+    setFullscreen(false)
   }, [page.file, editing])
 
   useEffect(() => {
     function onChange() {
-      if (!document.fullscreenElement) setHtmlFullscreen(false)
+      if (!document.fullscreenElement) setFullscreen(false)
     }
     document.addEventListener('fullscreenchange', onChange)
     return () => document.removeEventListener('fullscreenchange', onChange)
@@ -1144,12 +1199,12 @@ function Article({
     // preview clear of the status bar resolve to zero. The `fixed inset-0`
     // overlay alone looks the same and keeps normal layout.
     if (isMobilePlatform(window.desktop?.platform)) return
-    if (htmlFullscreen) {
+    if (fullscreen) {
       if (el && document.fullscreenElement !== el) void el.requestFullscreen?.().catch(() => {})
       return
     }
     if (document.fullscreenElement === el) void document.exitFullscreen?.().catch(() => {})
-  }, [htmlFullscreen])
+  }, [fullscreen])
 
   async function openHtmlInBrowser() {
     try {
@@ -1162,7 +1217,7 @@ function Article({
       const opened = window.open(url, '_blank', 'noopener,noreferrer')
       if (!opened) URL.revokeObjectURL(url)
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Could not open in the browser')
+      toast.error(err instanceof Error ? err.message : 'Could not open in the browser')
     }
   }
 
@@ -1233,16 +1288,15 @@ function Article({
         }
         return
       }
-      if (htmlFullscreen && event.key === 'Escape') {
+      if (fullscreen && event.key === 'Escape') {
         event.preventDefault()
         event.stopPropagation()
-        setHtmlFullscreen(false)
+        setFullscreen(false)
         return
       }
       if (
-        isHtmlFullscreenShortcut(event) &&
+        isFullscreenShortcut(event) &&
         !editing &&
-        kind === 'html' &&
         !findOpen
       ) {
         if (event.target instanceof HTMLElement && (event.target.matches('input, textarea') || event.target.isContentEditable)) {
@@ -1250,7 +1304,7 @@ function Article({
         }
         event.preventDefault()
         event.stopPropagation()
-        setHtmlFullscreen((fullscreen) => !fullscreen)
+        setFullscreen((fullscreen) => !fullscreen)
         return
       }
       if (!findOpen) return
@@ -1272,30 +1326,55 @@ function Article({
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [findOpen, htmlFullscreen, page.file, editing, kind])
+  }, [findOpen, fullscreen, page.file, editing, kind])
 
   const { items: tocItems, active: tocActive } = useToc(viewRootRef, `${page.file}:${editing}:${kind}:${page.body.length}`)
+  const { showToc, setShowToc } = useAppearance()
+  const [htmlHeads, setHtmlHeads] = useState<PreviewHeading[]>([])
+  const [htmlActive, setHtmlActive] = useState(0)
+  // HTML headings come from the preview frame; the shallowest level present becomes the top of the outline.
+  const htmlToc = useMemo<TocItem[]>(() => {
+    const top = Math.min(...htmlHeads.map((head) => head.level))
+    return htmlHeads.map((head, index) => ({ id: `html-heading-${index}`, text: head.text, level: Math.min(4, 2 + head.level - top) }))
+  }, [htmlHeads])
+  const htmlOutline = kind === 'html' && !fullscreen
+  const outline = editing ? [] : htmlOutline ? htmlToc : tocItems
+  const outlineActive = htmlOutline ? `html-heading-${htmlActive}` : tocActive
+  const jumpToHeading = htmlOutline
+    ? (item: TocItem) => htmlPreviewRef.current?.scrollToHeading(Number(item.id.slice('html-heading-'.length)))
+    : undefined
+  const showOutline = showToc && outline.length > 1 && !fullscreen
+  const findBar = findOpen ? (
+    <FindBar
+      query={findQuery}
+      result={findResult}
+      focusToken={findFocus}
+      inputRef={findInputRef}
+      onQueryChange={setFindQuery}
+      onNext={() => stepFind(1)}
+      onPrev={() => stepFind(-1)}
+      onClose={closeFind}
+    />
+  ) : null
+  const exitFullscreen = fullscreen ? (
+    <div className="note-fullscreen-exit fixed top-3 right-3 z-20">
+      <Button variant="outline" size="sm" onClick={() => setFullscreen(false)}>
+        <Minimize2 />
+        Exit fullscreen
+        <Kbd>Esc</Kbd>
+      </Button>
+    </div>
+  ) : null
 
   return (
     <div
       className={`mx-auto flex w-full max-w-5xl gap-8 px-6 py-8 xl:max-w-6xl ${
-        tocItems.length > 1 ? 'max-xl:pt-16' : ''
+        showOutline ? 'max-xl:pt-16' : ''
       }`}
     >
     <article className="flex min-w-0 flex-1 flex-col gap-6">
-      {findOpen ? (
-        <FindBar
-          query={findQuery}
-          result={findResult}
-          focusToken={findFocus}
-          inputRef={findInputRef}
-          onQueryChange={setFindQuery}
-          onNext={() => stepFind(1)}
-          onPrev={() => stepFind(-1)}
-          onClose={closeFind}
-        />
-      ) : null}
-      {!editing ? <TocMobile items={tocItems} active={tocActive} /> : null}
+      {fullscreen ? null : findBar}
+      {showOutline ? <TocMobile items={outline} active={outlineActive} onJump={jumpToHeading} /> : null}
       <header className="grid gap-2">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="font-heading text-3xl font-medium tracking-tight">
@@ -1363,23 +1442,25 @@ function Article({
                 <TooltipContent>Edit this note</TooltipContent>
               </Tooltip>
             )}
+            {!editing && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFullscreen(true)}
+                    aria-pressed={fullscreen}
+                  >
+                    <Maximize2 />
+                    Fullscreen
+                    <Kbd>F</Kbd>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>View this file fullscreen</TooltipContent>
+              </Tooltip>
+            )}
             {!editing && kind === 'html' && (
               <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setHtmlFullscreen(true)}
-                      aria-pressed={htmlFullscreen}
-                    >
-                      <Maximize2 />
-                      Fullscreen
-                      <Kbd>F</Kbd>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>View this page fullscreen</TooltipContent>
-                </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="outline" size="sm" onClick={() => void openHtmlInBrowser()}>
@@ -1390,6 +1471,17 @@ function Article({
                   <TooltipContent>Open this HTML file in your browser</TooltipContent>
                 </Tooltip>
               </>
+            )}
+            {!showToc && outline.length > 1 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" onClick={() => setShowToc(true)} aria-label="Show On this page">
+                    <List />
+                    Outline
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Show On this page</TooltipContent>
+              </Tooltip>
             )}
             {onDelete && !editing && (
               <Button variant="outline" size="sm" onClick={onDelete}>
@@ -1467,44 +1559,55 @@ function Article({
         <div
           ref={previewStageRef}
           className={
-            htmlFullscreen ? 'html-fullscreen fixed inset-0 z-50 flex flex-col bg-background' : undefined
+            fullscreen ? 'note-fullscreen fixed inset-0 z-50 flex flex-col bg-background' : undefined
           }
         >
-          {htmlFullscreen ? (
-            <div className="html-fullscreen-exit absolute top-3 right-3 z-10">
-              <Button variant="outline" size="sm" onClick={() => setHtmlFullscreen(false)}>
-                <Minimize2 />
-                Exit fullscreen
-                <Kbd>Esc</Kbd>
-              </Button>
-            </div>
-          ) : null}
-          <div className={htmlFullscreen ? 'min-h-0 flex-1' : undefined}>
+          {exitFullscreen}
+          {fullscreen && findBar ? <div className="mx-auto w-full max-w-3xl px-6 pt-14">{findBar}</div> : null}
+          <div className={fullscreen ? 'min-h-0 flex-1' : undefined}>
             <HtmlPreview
               ref={htmlPreviewRef}
               file={page.file}
               html={page.raw}
               files={files}
               title={page.title}
-              fill={htmlFullscreen}
+              fill={fullscreen}
+              onHeadings={setHtmlHeads}
+              onActiveHeading={setHtmlActive}
             />
           </div>
         </div>
-      ) : kind === 'css' || kind === 'js' ? (
-        <CodeEditor key={page.file} ref={viewFindRef} kind={kind} value={page.raw} readOnly />
       ) : (
-        <div ref={viewRootRef} className="typeset typeset-docs w-full">
-          {kind === 'text' ? (
-            <PlainText key={page.file} ref={viewFindRef} value={page.body} readOnly />
-          ) : (
-            <MarkdownView
-              key={page.file}
-              page={page}
-              onNavigate={onGo}
-              onOpenSplit={onOpenSplit}
-              onToggleTask={onToggleTask}
-            />
-          )}
+        <div
+          ref={previewStageRef}
+          className={fullscreen ? 'note-fullscreen fixed inset-0 z-50 overflow-y-auto bg-background' : undefined}
+        >
+          {exitFullscreen}
+          <div className={fullscreen ? 'mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-14 pb-16' : undefined}>
+            {fullscreen ? (
+              <>
+                {findBar}
+                <h1 className="font-heading text-3xl font-medium tracking-tight">{page.title}</h1>
+              </>
+            ) : null}
+            {kind === 'css' || kind === 'js' ? (
+              <CodeEditor key={page.file} ref={viewFindRef} kind={kind} value={page.raw} readOnly />
+            ) : (
+              <div ref={viewRootRef} className="typeset typeset-docs w-full">
+                {kind === 'text' ? (
+                  <PlainText key={page.file} ref={viewFindRef} value={page.body} readOnly />
+                ) : (
+                  <MarkdownView
+                    key={page.file}
+                    page={page}
+                    onNavigate={onGo}
+                    onOpenSplit={onOpenSplit}
+                    onToggleTask={onToggleTask}
+                  />
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1542,7 +1645,7 @@ function Article({
         </>
       )}
     </article>
-      <Toc items={tocItems} active={tocActive} />
+      {showOutline ? <Toc items={outline} active={outlineActive} onJump={jumpToHeading} onHide={() => setShowToc(false)} /> : null}
     </div>
   )
 }

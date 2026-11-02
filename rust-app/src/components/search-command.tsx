@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronRight, CornerDownLeft, Search } from 'lucide-react'
+import { ChevronRight, CornerDownLeft, Search } from '@/components/icons'
 
 import { Button } from '@/components/ui/button'
 import {

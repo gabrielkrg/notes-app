@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Folder, FolderOpen, Monitor, Moon, BookOpen, Palette, RefreshCw, Search, SlidersHorizontal, Sun, Trash2 } from 'lucide-react'
+import { Folder, FolderOpen, Monitor, Moon, BookOpen, Palette, RefreshCw, Search, SlidersHorizontal, Sun, Trash2 } from '@/components/icons'
 
 import { GithubMark } from '@/components/github-mark.tsx'
 import { Button } from '@/components/ui/button'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Switch } from '@/components/ui/switch'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   Dialog,
   DialogContent,
@@ -20,7 +23,8 @@ import {
   type GithubLibraryState,
 } from '@/lib/github-client.ts'
 import type { GithubRemote } from '@/lib/github-notes.ts'
-import { FontSizePicker, PalettePicker, TypefacePicker } from '@/components/appearance-controls.tsx'
+import { FontSizePicker, TypefacePicker } from '@/components/appearance-controls.tsx'
+import { useAppearance } from '@/lib/appearance-provider.tsx'
 import { HIGHLIGHT_COLORS } from '@/lib/highlight.ts'
 import { useHighlight } from '@/lib/highlight-provider.tsx'
 import { useTheme, type Theme } from '@/lib/theme'
@@ -49,20 +53,14 @@ const SECTIONS: {
       'font',
       'typeface',
       'size',
-      'sepia',
-      'forest',
-      'ink',
-      'slate',
-      'dusk',
-      'midnight',
-      'abyss',
       'plex',
       'source',
       'newsreader',
-      'palette',
+      'jetbrains',
+      'mono',
     ],
   },
-  { id: 'reading', label: 'Reading', icon: BookOpen, keywords: ['font', 'typeface', 'size', 'text', 'highlight', 'reading'] },
+  { id: 'reading', label: 'Reading', icon: BookOpen, keywords: ['font', 'typeface', 'size', 'text', 'highlight', 'reading', 'outline', 'contents', 'on this page', 'toc'] },
   {
     id: 'library',
     label: 'Library',
@@ -296,7 +294,7 @@ export function SettingsDialog({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Find a setting…"
-                className="h-9 bg-background/80 pl-8"
+                className="h-8 bg-background/80 pl-8 text-[13px]"
                 aria-label="Search settings"
               />
             </div>
@@ -314,13 +312,13 @@ export function SettingsDialog({
                         aria-current={active ? 'page' : undefined}
                         onClick={() => setSection(item.id)}
                   className={cn(
-                    'inline-flex h-10 shrink-0 items-center gap-2.5 rounded-lg px-3 text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'settings-nav-item inline-flex h-8 shrink-0 items-center gap-2 rounded-lg px-2.5 text-[13px] outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
                           active
-                            ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                            ? 'is-active font-semibold text-foreground'
                             : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
                         )}
                       >
-                        <Icon className="size-4" />
+                        <Icon className="size-3.5" />
                         {item.label}
                       </button>
                     )
@@ -371,6 +369,7 @@ export function SettingsDialog({
 
 function GeneralPane({ reading = false }: { reading?: boolean }) {
   const { theme, setTheme } = useTheme()
+  const { showToc, setShowToc } = useAppearance()
   const { highlight, setHighlight } = useHighlight()
 
   return (
@@ -384,49 +383,39 @@ function GeneralPane({ reading = false }: { reading?: boolean }) {
 
       <div className="grid gap-1">
         {!reading && <PreferenceRow label="Color mode">
-          <div
-            role="radiogroup"
+          <ToggleGroup
+            type="single"
+            size="sm"
+            spacing={0}
             aria-label="Appearance"
-            className="inline-flex rounded-lg border bg-muted/60 p-0.5"
+            value={theme}
+            onValueChange={(value) => value && setTheme(value as Theme)}
+            className="segmented"
           >
             {APPEARANCE.map((option) => {
               const Icon = option.icon
-              const selected = theme === option.value
               return (
-                <button
-                  key={option.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  aria-label={option.label}
-                  title={option.label}
-                  onClick={() => setTheme(option.value)}
-                  className={cn(
-                    'inline-flex h-9 items-center justify-center gap-2 px-3 rounded-md text-muted-foreground outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
-                    selected && 'bg-background text-foreground shadow-sm',
-                  )}
-                >
-                  <Icon className="size-4" />
+                <ToggleGroupItem key={option.value} value={option.value} aria-label={option.label} title={option.label}>
+                  <Icon />
                   <span>{option.label}</span>
-                </button>
+                </ToggleGroupItem>
               )
             })}
-          </div>
+          </ToggleGroup>
         </PreferenceRow>}
 
         {reading && <PreferenceRow label="Text size">
           <FontSizePicker />
         </PreferenceRow>}
 
-        {!reading && <div className="grid gap-3 py-5">
-          <span className="text-sm font-medium">Color palette</span>
-          <PalettePicker />
-        </div>}
-
         {reading && <div className="grid gap-3 border-b py-5">
           <span className="text-sm font-medium">Reading typeface</span>
           <TypefacePicker />
         </div>}
+
+        {reading && <PreferenceRow label="On this page menu">
+          <Switch checked={showToc} onCheckedChange={setShowToc} aria-label="Show the On this page menu beside notes" />
+        </PreferenceRow>}
 
         {reading && <PreferenceRow label="Highlight color">
           <div role="radiogroup" aria-label="Highlight color" className="flex flex-wrap gap-1.5">
@@ -534,6 +523,7 @@ function LibraryPane({
         ) : (
           <div className="grid gap-2">
             {roots.length ? (
+              <RadioGroup asChild value={defaultRoot} onValueChange={onDefault} disabled={busy} aria-label="Default folder for new notes">
               <ul className="grid gap-2">
                 {[...roots]
                   .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
@@ -543,15 +533,7 @@ function LibraryPane({
                     className="flex items-center gap-2 rounded-lg border bg-muted/20 px-2.5 py-1.5"
                   >
                     <label className="flex min-w-0 flex-1 items-center gap-2">
-                      <input
-                        type="radio"
-                        name="default-notes-root"
-                        checked={defaultRoot === root}
-                        disabled={busy}
-                        onChange={() => onDefault(root)}
-                        aria-label={`Default for new notes: ${root}`}
-                        className="size-3.5 shrink-0 accent-foreground"
-                      />
+                      <RadioGroupItem value={root} aria-label={`Default for new notes: ${root}`} className="size-3.5 [&_[data-slot=radio-group-indicator]]:size-3.5" />
                       <span className="min-w-0 flex-1 truncate font-mono text-xs" title={root}>
                         {root}
                       </span>
@@ -572,6 +554,7 @@ function LibraryPane({
                   </li>
                 ))}
               </ul>
+              </RadioGroup>
             ) : (
               <p className="text-sm text-muted-foreground">No folders yet.</p>
             )}
